@@ -26,22 +26,41 @@ def parse_iso8601_duration(duration_str: str) -> int:
     seconds = int(match.group(3)) if match.group(3) else 0
     return hours * 3600 + minutes * 60 + seconds
 
-def calculate_average_duration(db: Session, channel_id: int) -> float | None:
+def calculate_channel_metrics(db: Session, channel_id: int):
     """
-    チャンネルに紐づく全動画の平均秒数を計算します。
+    チャンネルに紐づく動画データから「平均動画時間」「平均再生数」「平均投稿頻度(週単位)」を算出します。
     """
     videos = db.query(Video).filter(Video.channel_id == channel_id).all()
     if not videos:
-        return None
-    
+        return None, None, None
+
+    # 1. 平均動画時間
     total_seconds = 0
-    count = 0
+    duration_count = 0
     for v in videos:
         if v.duration:
             total_seconds += parse_iso8601_duration(v.duration)
-            count += 1
-            
-    return total_seconds / count if count > 0 else None
+            duration_count += 1
+    avg_duration = total_seconds / duration_count if duration_count > 0 else None
+
+    # 2. 1動画あたりの平均視聴回数 (動画平均再生数)
+    total_views = sum(v.view_count for v in videos)
+    avg_views = total_views / len(videos)
+
+    # 3. 平均動画投稿頻度 (週単位)
+    if len(videos) > 1:
+        # 投稿時間の昇順でソートして期間を算出
+        sorted_videos = sorted(videos, key=lambda x: x.published_at)
+        oldest = sorted_videos[0].published_at
+        latest = sorted_videos[-1].published_at
+        
+        days = (latest - oldest).days
+        weeks = max(days, 1) / 7.0
+        avg_frequency = len(videos) / weeks
+    else:
+        avg_frequency = 0.0
+
+    return avg_duration, avg_views, avg_frequency
 
 @router.post("/", response_model=ChannelResponse, status_code=status.HTTP_201_CREATED)
 def register_channel(payload: ChannelCreateRequest, db: Session = Depends(get_db)):
@@ -104,15 +123,22 @@ def register_channel(payload: ChannelCreateRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(db_channel)
     
-    # 平均動画時間の算出とスキーマ動的バインド
-    db_channel.average_video_duration = calculate_average_duration(db, db_channel.id)
+    # 統計情報の算出とスキーマ動的バインド
+    avg_duration, avg_views, avg_freq = calculate_channel_metrics(db, db_channel.id)
+    db_channel.average_video_duration = avg_duration
+    db_channel.average_views_per_video = avg_views
+    db_channel.average_upload_frequency = avg_freq
+    
     return db_channel
 
 @router.get("/", response_model=List[ChannelResponse])
 def get_all_channels(db: Session = Depends(get_db)):
     channels = db.query(Channel).all()
     for c in channels:
-        c.average_video_duration = calculate_average_duration(db, c.id)
+        avg_duration, avg_views, avg_freq = calculate_channel_metrics(db, c.id)
+        c.average_video_duration = avg_duration
+        c.average_views_per_video = avg_views
+        c.average_upload_frequency = avg_freq
     return channels
 
 @router.delete("/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)

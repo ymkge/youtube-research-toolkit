@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 270px;
+  height: 315px; /* チップ3個並びへの対応として高さを拡張 */
   position: relative;
   overflow: hidden;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
@@ -71,7 +71,7 @@
   gap: 1rem;
   align-items: center;
   margin-bottom: 0.5rem;
-  padding-right: 1.5rem; /* 削除ボタンと重なるのを防ぐ */
+  padding-right: 1.5rem;
 }
 
 .thumbnail {
@@ -99,10 +99,22 @@
   text-overflow: ellipsis;
 }
 
+.metaRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.15rem;
+  flex-wrap: wrap;
+}
+
 .customUrl {
   font-size: 0.8rem;
   color: #aaaaaa;
-  margin-top: 0.1rem;
+}
+
+.publishedAt {
+  font-size: 0.75rem;
+  color: #666666;
 }
 
 .description {
@@ -111,28 +123,42 @@
   margin: 0 0 0.75rem 0;
   line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 2; /* 2行に減らして高さを節約 */
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   height: 2.8em;
 }
 
-.durationChip {
+.chipsRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+
+.durationChip, .frequencyChip, .viewsChip {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   background-color: #222222;
   border: 1px solid #333333;
   border-radius: 20px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
   color: #aaaaaa;
-  margin-bottom: 0.75rem;
-  width: fit-content;
 }
 
 .durationIcon {
   color: #ff007f;
+}
+
+.frequencyIcon {
+  color: #00bfff;
+}
+
+.viewsIcon {
+  color: #00ff7f;
 }
 
 .stats {

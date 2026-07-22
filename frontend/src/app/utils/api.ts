@@ -12,6 +12,8 @@ export interface Channel {
   video_count: number;
   thumbnail_url: string | null;
   average_video_duration: number | null; // 平均動画時間 (秒)
+  average_views_per_video: number | null; // 1動画あたりの平均再生数
+  average_upload_frequency: number | null; // 平均動画投稿頻度 (週単位)
   updated_at: string;
 }
 

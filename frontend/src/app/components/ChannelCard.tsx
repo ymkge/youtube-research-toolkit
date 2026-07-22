@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Channel } from '../utils/api';
 import styles from './ChannelCard.module.css';
-import { Users, Tv, Play, Clock, Trash2 } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2 } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -19,12 +19,25 @@ function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
+// 開設日のフォーマット関数 (YYYY年MM月DD日)
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '不明';
+  const date = new Date(dateStr);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 // 秒数を「分秒」に変換する関数
 function formatDuration(seconds: number | null): string {
   if (seconds === null || seconds === undefined) return 'データなし';
   const mins = Math.floor(seconds / 60);
   const secs = Math.round(seconds % 60);
   return `${mins}分${secs}秒`;
+}
+
+// 投稿頻度を「週〇回」にフォーマットする関数
+function formatFrequency(freq: number | null): string {
+  if (freq === null || freq === undefined) return 'データなし';
+  return `週 ${freq.toFixed(1)}回`;
 }
 
 export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
@@ -65,9 +78,14 @@ export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
           <h3 className={styles.title} title={channel.title}>
             {channel.title}
           </h3>
-          {channel.custom_url && (
-            <span className={styles.customUrl}>{channel.custom_url}</span>
-          )}
+          <div className={styles.metaRow}>
+            {channel.custom_url && (
+              <span className={styles.customUrl}>{channel.custom_url}</span>
+            )}
+            <span className={styles.publishedAt}>
+              開設: {formatDate(channel.published_at)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -75,10 +93,22 @@ export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
         {channel.description || '説明はありません。'}
       </p>
 
-      {/* 平均動画収録時間のインフォメーションチップ */}
-      <div className={styles.durationChip}>
-        <Clock className={styles.durationIcon} size={14} />
-        <span>平均動画時間: <strong>{formatDuration(channel.average_video_duration)}</strong></span>
+      {/* 分析メトリクス用チップ行（平均動画時間 ＆ 平均投稿頻度 & 1動画平均再生） */}
+      <div className={styles.chipsRow}>
+        <div className={styles.durationChip} title="同期された動画の平均長さ">
+          <Clock className={styles.durationIcon} size={13} />
+          <span>動画長: <strong>{formatDuration(channel.average_video_duration)}</strong></span>
+        </div>
+
+        <div className={styles.frequencyChip} title="週あたりの動画投稿頻度">
+          <Calendar className={styles.frequencyIcon} size={13} />
+          <span>投稿: <strong>{formatFrequency(channel.average_upload_frequency)}</strong></span>
+        </div>
+
+        <div className={styles.viewsChip} title="1動画あたりの平均視聴回数">
+          <BarChart2 className={styles.viewsIcon} size={13} />
+          <span>平均再生: <strong>{formatNumber(channel.average_views_per_video || 0)}</strong></span>
+        </div>
       </div>
 
       <div className={styles.stats}>
@@ -103,7 +133,7 @@ export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
           <span className={styles.statValue}>
             {formatNumber(channel.view_count)}
           </span>
-          <span className={styles.statLabel}>再生回数</span>
+          <span className={styles.statLabel}>総再生数</span>
         </div>
       </div>
     </div>

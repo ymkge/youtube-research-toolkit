@@ -1,0 +1,129 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #0f0f0f;
+  color: #f1f1f1;
+}
+
+.header {
+  border-bottom: 1px solid #222222;
+  padding: 2rem 1.5rem;
+  background-color: #121212;
+}
+
+.logoArea {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 0.5rem 0;
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #8a2be2, #ff007f);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #aaaaaa;
+  font-weight: 400;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  width: 100%;
+  flex: 1;
+}
+
+.registerSection {
+  margin-bottom: 3rem;
+}
+
+.dashboardSection {
+  width: 100%;
+}
+
+.sectionTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #8a2be2;
+  padding-left: 0.75rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.loadingArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  color: #aaaaaa;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(138, 43, 226, 0.2);
+  border-radius: 50%;
+  border-top-color: #8a2be2;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.errorArea {
+  text-align: center;
+  padding: 3rem 0;
+  color: #ff4d4d;
+}
+
+.retryButton {
+  margin-top: 1rem;
+  background-color: #222222;
+  color: #ffffff;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.retryButton:hover {
+  background-color: #333333;
+}
+
+.emptyArea {
+  text-align: center;
+  padding: 5rem 1.5rem;
+  background-color: #141414;
+  border: 1px dashed #333333;
+  border-radius: 12px;
+  color: #888888;
+}
+
+.emptyTip {
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  color: #666666;
+}

@@ -1,5 +1,11 @@
 import type { Metadata } from 'next';
+import { Outfit } from 'next/font/google';
 import './globals.css';
+
+const outfit = Outfit({ 
+  subsets: ['latin'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'YouTube Research Toolkit',
@@ -12,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="ja" className={outfit.className}>
       <body>{children}</body>
     </html>
   );

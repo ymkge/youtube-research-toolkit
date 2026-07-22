@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Channel } from '../utils/api';
 import styles from './ChannelCard.module.css';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -66,6 +66,7 @@ export default function ChannelCard({
 }: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -97,10 +98,7 @@ export default function ChannelCard({
   return (
     <div 
       className={`${styles.card} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''}`}
-      draggable="true"
-      onDragStart={(e) => onDragStart(e, channel.id)}
-      onDragOver={(e) => onDragOver(e, channel.id)}
-      onDragEnd={onDragEnd}
+      onMouseLeave={() => setIsMenuOpen(false)}
     >
       <div className={styles.actionButtons}>
         <button 
@@ -113,16 +111,40 @@ export default function ChannelCard({
         </button>
 
         <button 
-          className={styles.deleteButton} 
-          onClick={handleDeleteClick} 
-          title="チャンネルを追跡解除"
-          disabled={isDeleting || isPinning}
+          className={`${styles.menuButton} ${isMenuOpen ? styles.menuActive : ''}`} 
+          onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} 
+          title="メニューを開く"
+          disabled={isDeleting}
         >
-          <Trash2 size={16} />
+          <MoreVertical size={16} />
         </button>
+
+        {isMenuOpen && (
+          <div className={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
+            <button 
+              className={styles.dropdownItemDelete}
+              onClick={(e) => { setIsMenuOpen(false); handleDeleteClick(e); }}
+            >
+              <Trash2 size={14} className={styles.menuDeleteIcon} />
+              <span>追跡解除（削除）</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className={styles.header}>
+        {/* ドラッグ専用のGripハンドル (テキストコピペを妨げないための設計) */}
+        <div 
+          className={styles.dragHandle}
+          draggable="true"
+          onDragStart={(e) => onDragStart(e, channel.id)}
+          onDragOver={(e) => onDragOver(e, channel.id)}
+          onDragEnd={onDragEnd}
+          title="ドラッグして並び替え"
+        >
+          <GripVertical size={18} />
+        </div>
+
         {channel.thumbnail_url && (
           <img
             src={channel.thumbnail_url}

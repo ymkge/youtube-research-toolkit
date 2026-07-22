@@ -17,6 +17,7 @@ class ChannelResponse(BaseModel):
     view_count: int
     video_count: int
     thumbnail_url: Optional[str] = None
+    average_video_duration: Optional[float] = None
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

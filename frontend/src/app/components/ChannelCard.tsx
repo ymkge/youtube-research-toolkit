@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Channel } from '../utils/api';
 import styles from './ChannelCard.module.css';
-import { Users, Tv, Play } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2 } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
+  onDelete: (channelId: number) => Promise<void>;
 }
 
 // 数値を読みやすい単位（万、億）にフォーマットする関数
@@ -18,9 +19,40 @@ function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
-export default function ChannelCard({ channel }: ChannelCardProps) {
+// 秒数を「分秒」に変換する関数
+function formatDuration(seconds: number | null): string {
+  if (seconds === null || seconds === undefined) return 'データなし';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}分${secs}秒`;
+}
+
+export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm(`「${channel.title}」を追跡解除（削除）しますか？\n紐づく動画統計データもすべてSQLiteから削除されます。`)) {
+      setIsDeleting(true);
+      try {
+        await onDelete(channel.id);
+      } catch (err) {
+        setIsDeleting(false);
+      }
+    }
+  };
+
   return (
-    <div className={styles.card}>
+    <div className={`${styles.card} ${isDeleting ? styles.deleting : ''}`}>
+      <button 
+        className={styles.deleteButton} 
+        onClick={handleDeleteClick} 
+        title="チャンネルを追跡解除"
+        disabled={isDeleting}
+      >
+        <Trash2 size={16} />
+      </button>
+
       <div className={styles.header}>
         {channel.thumbnail_url && (
           <img
@@ -42,6 +74,12 @@ export default function ChannelCard({ channel }: ChannelCardProps) {
       <p className={styles.description}>
         {channel.description || '説明はありません。'}
       </p>
+
+      {/* 平均動画収録時間のインフォメーションチップ */}
+      <div className={styles.durationChip}>
+        <Clock className={styles.durationIcon} size={14} />
+        <span>平均動画時間: <strong>{formatDuration(channel.average_video_duration)}</strong></span>
+      </div>
 
       <div className={styles.stats}>
         <div className={styles.statItem} title="チャンネル登録者数">

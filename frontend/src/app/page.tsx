@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchChannels, Channel } from './utils/api';
+import { fetchChannels, Channel, deleteChannel } from './utils/api';
 import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
 import styles from './page.module.css';
@@ -38,6 +38,17 @@ export default function Home() {
       }
       return [...prev, newChannel];
     });
+  };
+
+  const handleDeleteChannel = async (channelId: number) => {
+    try {
+      await deleteChannel(channelId);
+      // 削除成功時にローカルステートから除外
+      setChannels((prev) => prev.filter((c) => c.id !== channelId));
+    } catch (err: any) {
+      alert(err.message || '削除中にエラーが発生しました。');
+      throw err; // 子コンポーネントにエラーを伝える
+    }
   };
 
   return (
@@ -81,7 +92,11 @@ export default function Home() {
           ) : (
             <div className={styles.grid}>
               {channels.map((channel) => (
-                <ChannelCard key={channel.id} channel={channel} />
+                <ChannelCard 
+                  key={channel.id} 
+                  channel={channel} 
+                  onDelete={handleDeleteChannel}
+                />
               ))}
             </div>
           )}

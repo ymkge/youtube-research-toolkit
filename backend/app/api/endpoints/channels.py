@@ -7,8 +7,41 @@ from app.schemas.channel import ChannelCreateRequest, ChannelResponse
 from app.services.youtube import youtube_service
 from typing import List
 import datetime
+import re
 
 router = APIRouter()
+
+def parse_iso8601_duration(duration_str: str) -> int:
+    """
+    ISO 8601 duration (e.g. PT15M30S) を秒数に変換します。
+    """
+    if not duration_str:
+        return 0
+    pattern = re.compile(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?')
+    match = pattern.match(duration_str)
+    if not match:
+        return 0
+    hours = int(match.group(1)) if match.group(1) else 0
+    minutes = int(match.group(2)) if match.group(2) else 0
+    seconds = int(match.group(3)) if match.group(3) else 0
+    return hours * 3600 + minutes * 60 + seconds
+
+def calculate_average_duration(db: Session, channel_id: int) -> float | None:
+    """
+    チャンネルに紐づく全動画の平均秒数を計算します。
+    """
+    videos = db.query(Video).filter(Video.channel_id == channel_id).all()
+    if not videos:
+        return None
+    
+    total_seconds = 0
+    count = 0
+    for v in videos:
+        if v.duration:
+            total_seconds += parse_iso8601_duration(v.duration)
+            count += 1
+            
+    return total_seconds / count if count > 0 else None
 
 @router.post("/", response_model=ChannelResponse, status_code=status.HTTP_201_CREATED)
 def register_channel(payload: ChannelCreateRequest, db: Session = Depends(get_db)):
@@ -70,8 +103,29 @@ def register_channel(payload: ChannelCreateRequest, db: Session = Depends(get_db
 
     db.commit()
     db.refresh(db_channel)
+    
+    # 平均動画時間の算出とスキーマ動的バインド
+    db_channel.average_video_duration = calculate_average_duration(db, db_channel.id)
     return db_channel
 
 @router.get("/", response_model=List[ChannelResponse])
 def get_all_channels(db: Session = Depends(get_db)):
-    return db.query(Channel).all()
+    channels = db.query(Channel).all()
+    for c in channels:
+        c.average_video_duration = calculate_average_duration(db, c.id)
+    return channels
+
+@router.delete("/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_channel(channel_id: int, db: Session = Depends(get_db)):
+    """
+    指定されたIDのチャンネルと、カスケードされたすべての紐づく動画を物理削除します。
+    """
+    db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+    db.delete(db_channel)
+    db.commit()
+    return

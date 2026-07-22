@@ -11,6 +11,7 @@ export interface Channel {
   view_count: number;
   video_count: number;
   thumbnail_url: string | null;
+  average_video_duration: number | null; // 平均動画時間 (秒)
   updated_at: string;
 }
 
@@ -38,11 +39,25 @@ export async function registerChannel(identifier: string, importLimit: number = 
   });
 
   if (!res.ok) {
-    // 206 Partial Content (動画同期のみ失敗) などの可能性もあるため、エラーハンドリングを丁寧に行う
     const errorData = await res.json().catch(() => ({}));
     const message = errorData.detail || 'チャンネルの登録に失敗しました。';
     throw new Error(message);
   }
 
   return res.json();
+}
+
+/**
+ * チャンネルを削除します（カスケード削除）。
+ */
+export async function deleteChannel(channelId: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}`, {
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const message = errorData.detail || 'チャンネルの削除に失敗しました。';
+    throw new Error(message);
+  }
 }

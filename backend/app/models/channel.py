@@ -16,6 +16,7 @@ class Channel(Base):
     view_count = Column(Integer, default=0)
     video_count = Column(Integer, default=0)
     thumbnail_url = Column(String, nullable=True)
+    country = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     # 1対多のリレーションシップ (チャンネル削除時に紐づく動画も削除)

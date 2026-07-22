@@ -20,6 +20,7 @@ class ChannelResponse(BaseModel):
     average_video_duration: Optional[float] = None
     average_views_per_video: Optional[float] = None
     average_upload_frequency: Optional[float] = None
+    country: Optional[str] = None
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

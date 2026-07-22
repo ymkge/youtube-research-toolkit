@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 315px; /* チップ3個並びへの対応として高さを拡張 */
+  height: 315px;
   position: relative;
   overflow: hidden;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
@@ -89,14 +89,39 @@
   flex: 1;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
 .title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
-  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.titleLink {
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+
+.titleLink:hover {
+  color: #ff007f; /* ホバー時にブランドピンクに発光 */
+  text-decoration: underline;
+}
+
+.countryFlag {
+  font-size: 1.15rem;
+  line-height: 1;
+  user-select: none;
 }
 
 .metaRow {

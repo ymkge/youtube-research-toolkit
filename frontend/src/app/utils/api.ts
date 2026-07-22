@@ -14,6 +14,7 @@ export interface Channel {
   average_video_duration: number | null; // 平均動画時間 (秒)
   average_views_per_video: number | null; // 1動画あたりの平均再生数
   average_upload_frequency: number | null; // 平均動画投稿頻度 (週単位)
+  country: string | null; // 国名コード (JP, US など)
   updated_at: string;
 }
 

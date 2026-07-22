@@ -40,6 +40,16 @@ function formatFrequency(freq: number | null): string {
   return `週 ${freq.toFixed(1)}回`;
 }
 
+// 国名コード (JP, US) から国旗絵文字に変換する関数
+function getCountryEmoji(countryCode: string | null): string {
+  if (!countryCode) return '';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
 export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -54,6 +64,11 @@ export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
       }
     }
   };
+
+  // YouTube チャンネルへのリンクURLを構築
+  const channelUrl = channel.custom_url
+    ? `https://www.youtube.com/${channel.custom_url}`
+    : `https://www.youtube.com/channel/${channel.youtube_channel_id}`;
 
   return (
     <div className={`${styles.card} ${isDeleting ? styles.deleting : ''}`}>
@@ -75,9 +90,18 @@ export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
           />
         )}
         <div className={styles.titles}>
-          <h3 className={styles.title} title={channel.title}>
-            {channel.title}
-          </h3>
+          <div className={styles.titleRow}>
+            <h3 className={styles.title} title={channel.title}>
+              <a href={channelUrl} target="_blank" rel="noopener noreferrer" className={styles.titleLink}>
+                {channel.title}
+              </a>
+            </h3>
+            {channel.country && channel.country !== 'UNKNOWN' && (
+              <span className={styles.countryFlag} title={`国: ${channel.country}`}>
+                {getCountryEmoji(channel.country)}
+              </span>
+            )}
+          </div>
           <div className={styles.metaRow}>
             {channel.custom_url && (
               <span className={styles.customUrl}>{channel.custom_url}</span>

@@ -86,6 +86,7 @@ class YouTubeService:
             "view_count": int(stats.get("viewCount", 0)),
             "video_count": int(stats.get("videoCount", 0)),
             "thumbnail_url": snippet.get("thumbnails", {}).get("high", {}).get("url"),
+            "country": snippet.get("country"),
             "uploads_playlist_id": content_details.get("relatedPlaylists", {}).get("uploads")
         }
 

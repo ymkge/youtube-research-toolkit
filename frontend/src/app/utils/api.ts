@@ -17,6 +17,7 @@ export interface Channel {
   country: string | null; // 国名コード (JP, US など)
   sort_order: number; // 表示順
   is_pinned: boolean; // ピン留め状態
+  latest_video_published_at: string | null; // 最新動画アップロード日時
   updated_at: string;
 }
 

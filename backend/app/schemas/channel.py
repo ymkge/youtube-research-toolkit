@@ -23,6 +23,7 @@ class ChannelResponse(BaseModel):
     country: Optional[str] = None
     sort_order: int
     is_pinned: bool
+    latest_video_published_at: Optional[datetime] = None
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

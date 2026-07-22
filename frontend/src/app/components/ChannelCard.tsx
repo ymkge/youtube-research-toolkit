@@ -24,11 +24,14 @@ function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
-// 開設日のフォーマット関数 (YYYY年MM月DD日)
+// 日付のフォーマット関数 (YYYY/MM/DD)
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '不明';
   const date = new Date(dateStr);
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd}`;
 }
 
 // 秒数を「分秒」に変換する関数
@@ -170,9 +173,19 @@ export default function ChannelCard({
             {channel.custom_url && (
               <span className={styles.customUrl}>{channel.custom_url}</span>
             )}
-            <span className={styles.publishedAt}>
-              開設: {formatDate(channel.published_at)}
-            </span>
+            <div className={styles.dateRow}>
+              <span className={styles.publishedAt}>
+                開設: {formatDate(channel.published_at)}
+              </span>
+              {channel.latest_video_published_at && (
+                <>
+                  <span className={styles.separator}>|</span>
+                  <span className={styles.latestUpload}>
+                    最新: {formatDate(channel.latest_video_published_at)}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

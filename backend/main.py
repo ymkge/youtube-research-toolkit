@@ -111,3 +111,16 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.on_event("startup")
+def startup_event():
+    """
+    サーバー起動時に JSON 履歴ファイル（GitHub Actionsからプッシュされた時系列統計）を SQLite DB にマージします。
+    """
+    from app.scripts.fetch_stats import run_sync_json_mode
+    print("Startup: Synchronizing JSON stats history files into SQLite database...")
+    try:
+        run_sync_json_mode()
+        print("Startup: Synchronization completed.")
+    except Exception as e:
+        print(f"Startup warning (JSON Sync failed): {e}")

@@ -149,7 +149,7 @@
 
 .header {
   display: flex;
-  gap: 0.5rem; /* ハンドル追加に伴い調整 */
+  gap: 0.5rem;
   align-items: center;
   margin-bottom: 0.5rem;
   padding-right: 3.5rem;
@@ -230,10 +230,9 @@
 
 .metaRow {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  flex-direction: column; /* ハンドル名と日付情報を縦並びにして、日付が確実に横並びになるようにする */
+  gap: 0.15rem;
   margin-top: 0.15rem;
-  flex-wrap: wrap;
 }
 
 .customUrl {
@@ -241,9 +240,29 @@
   color: #aaaaaa;
 }
 
+.dateRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap; /* 開設と最新の日付は折り返さず、必ず横並びにする */
+}
+
 .publishedAt {
   font-size: 0.75rem;
   color: #666666;
+  white-space: nowrap;
+}
+
+.separator {
+  color: #333333;
+  font-size: 0.7rem;
+  user-select: none;
+}
+
+.latestUpload {
+  font-size: 0.75rem;
+  color: #888888;
+  white-space: nowrap;
 }
 
 .description {

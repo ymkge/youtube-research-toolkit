@@ -23,3 +23,5 @@ class Channel(Base):
 
     # 1対多のリレーションシップ (チャンネル削除時に紐づく動画も削除)
     videos = relationship("Video", back_populates="channel", cascade="all, delete-orphan")
+    # 1対多のリレーションシップ (チャンネル削除時に紐づく統計履歴も削除)
+    stats_history = relationship("ChannelStatsHistory", back_populates="channel", cascade="all, delete-orphan")

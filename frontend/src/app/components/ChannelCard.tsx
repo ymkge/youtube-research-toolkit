@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { Channel } from '../utils/api';
 import styles from './ChannelCard.module.css';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2 } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
   onDelete: (channelId: number) => Promise<void>;
+  onPinToggle: (channelId: number, isPinned: boolean) => Promise<void>;
+  onDragStart: (e: React.DragEvent, channelId: number) => void;
+  onDragOver: (e: React.DragEvent, channelId: number) => void;
+  onDragEnd: (e: React.DragEvent) => void;
+  isDraggingNow?: boolean;
 }
 
 // 数値を読みやすい単位（万、億）にフォーマットする関数
@@ -50,8 +55,17 @@ function getCountryEmoji(countryCode: string | null): string {
   return String.fromCodePoint(...codePoints);
 }
 
-export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
+export default function ChannelCard({ 
+  channel, 
+  onDelete, 
+  onPinToggle,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  isDraggingNow = false
+}: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPinning, setIsPinning] = useState(false);
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,21 +79,48 @@ export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
     }
   };
 
+  const handlePinClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsPinning(true);
+    try {
+      await onPinToggle(channel.id, !channel.is_pinned);
+    } finally {
+      setIsPinning(false);
+    }
+  };
+
   // YouTube チャンネルへのリンクURLを構築
   const channelUrl = channel.custom_url
     ? `https://www.youtube.com/${channel.custom_url}`
     : `https://www.youtube.com/channel/${channel.youtube_channel_id}`;
 
   return (
-    <div className={`${styles.card} ${isDeleting ? styles.deleting : ''}`}>
-      <button 
-        className={styles.deleteButton} 
-        onClick={handleDeleteClick} 
-        title="チャンネルを追跡解除"
-        disabled={isDeleting}
-      >
-        <Trash2 size={16} />
-      </button>
+    <div 
+      className={`${styles.card} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''}`}
+      draggable="true"
+      onDragStart={(e) => onDragStart(e, channel.id)}
+      onDragOver={(e) => onDragOver(e, channel.id)}
+      onDragEnd={onDragEnd}
+    >
+      <div className={styles.actionButtons}>
+        <button 
+          className={`${styles.pinButton} ${channel.is_pinned ? styles.pinned : ''}`} 
+          onClick={handlePinClick} 
+          title={channel.is_pinned ? "ピン留めを解除" : "ピン留めする"}
+          disabled={isPinning || isDeleting}
+        >
+          <Pin size={14} className={channel.is_pinned ? styles.pinIconActive : ''} />
+        </button>
+
+        <button 
+          className={styles.deleteButton} 
+          onClick={handleDeleteClick} 
+          title="チャンネルを追跡解除"
+          disabled={isDeleting || isPinning}
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
 
       <div className={styles.header}>
         {channel.thumbnail_url && (
@@ -87,6 +128,7 @@ export default function ChannelCard({ channel, onDelete }: ChannelCardProps) {
             src={channel.thumbnail_url}
             alt={channel.title}
             className={styles.thumbnail}
+            draggable="false"
           />
         )}
         <div className={styles.titles}>

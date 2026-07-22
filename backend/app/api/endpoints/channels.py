@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.channel import Channel
 from app.models.video import Video
-from app.schemas.channel import ChannelCreateRequest, ChannelResponse
+from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest
 from app.services.youtube import youtube_service
 from typing import List
 import datetime
@@ -49,7 +49,6 @@ def calculate_channel_metrics(db: Session, channel_id: int):
 
     # 3. 平均動画投稿頻度 (週単位)
     if len(videos) > 1:
-        # 投稿時間の昇順でソートして期間を算出
         sorted_videos = sorted(videos, key=lambda x: x.published_at)
         oldest = sorted_videos[0].published_at
         latest = sorted_videos[-1].published_at
@@ -63,7 +62,7 @@ def calculate_channel_metrics(db: Session, channel_id: int):
     return avg_duration, avg_views, avg_frequency
 
 @router.post("/", response_model=ChannelResponse, status_code=status.HTTP_201_CREATED)
-def register_channel(payload: ChannelCreateRequest, db: Session = Depends(get_db)):
+def register_channel(payload: ChannelCreateRequest, response: Response, db: Session = Depends(get_db)):
     # 1. YouTube API から情報を取得
     try:
         api_data = youtube_service.get_channel_info(payload.identifier)
@@ -78,17 +77,21 @@ def register_channel(payload: ChannelCreateRequest, db: Session = Depends(get_db
         Channel.youtube_channel_id == api_data["youtube_channel_id"]
     ).first()
 
+    is_new = True
     # 動画同期に必要なアップロードプレイリストIDを退避し、データ辞書から削除
     uploads_playlist_id = api_data.pop("uploads_playlist_id")
 
     if db_channel:
+        is_new = False
         # すでに登録済みの場合は最新データで更新
         for key, value in api_data.items():
             setattr(db_channel, key, value)
         db_channel.updated_at = datetime.datetime.utcnow()
     else:
-        # 新規登録
-        db_channel = Channel(**api_data)
+        # 新規登録時に最大 sort_order + 1 を設定して最後尾に追加
+        max_order = db.query(Channel).order_by(Channel.sort_order.desc()).first()
+        new_order = (max_order.sort_order + 1) if max_order else 0
+        db_channel = Channel(**api_data, sort_order=new_order)
         db.add(db_channel)
         db.flush()  # DB上のIDを確定させる
 
@@ -129,11 +132,16 @@ def register_channel(payload: ChannelCreateRequest, db: Session = Depends(get_db
     db_channel.average_views_per_video = avg_views
     db_channel.average_upload_frequency = avg_freq
     
+    # 重複更新された場合はステータスコードを 200 OK に変更
+    if not is_new:
+        response.status_code = status.HTTP_200_OK
+
     return db_channel
 
 @router.get("/", response_model=List[ChannelResponse])
 def get_all_channels(db: Session = Depends(get_db)):
-    channels = db.query(Channel).all()
+    # ピン留め最優先、その後 sort_order 順
+    channels = db.query(Channel).order_by(Channel.is_pinned.desc(), Channel.sort_order.asc()).all()
     for c in channels:
         avg_duration, avg_views, avg_freq = calculate_channel_metrics(db, c.id)
         c.average_video_duration = avg_duration
@@ -153,5 +161,38 @@ def delete_channel(channel_id: int, db: Session = Depends(get_db)):
             detail="指定されたチャンネルが見つかりませんでした。"
         )
     db.delete(db_channel)
+    db.commit()
+    return
+
+@router.patch("/{channel_id}/pin", response_model=ChannelResponse)
+def update_channel_pin(channel_id: int, is_pinned: bool, db: Session = Depends(get_db)):
+    """
+    チャンネルのピン留め（最上部固定）状態を更新します。
+    """
+    db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+    db_channel.is_pinned = is_pinned
+    db.commit()
+    db.refresh(db_channel)
+    
+    avg_duration, avg_views, avg_freq = calculate_channel_metrics(db, db_channel.id)
+    db_channel.average_video_duration = avg_duration
+    db_channel.average_views_per_video = avg_views
+    db_channel.average_upload_frequency = avg_freq
+    return db_channel
+
+@router.put("/sort", status_code=status.HTTP_204_NO_CONTENT)
+def update_channels_sort(payload: ChannelSortRequest, db: Session = Depends(get_db)):
+    """
+    ドラッグ＆ドロップ後の表示順を一括保存します。
+    """
+    for idx, channel_id in enumerate(payload.ids):
+        db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+        if db_channel:
+            db_channel.sort_order = idx
     db.commit()
     return

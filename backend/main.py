@@ -14,17 +14,34 @@ load_dotenv()
 # アプリケーション起動時にDBテーブルを自動作成 (SQLite用)
 Base.metadata.create_all(bind=engine)
 
-# 既存データ保護：country カラムがなければ自動追加するマイグレーションロジック
-def add_country_column_if_not_exists():
+# 既存データ保護：必要なカラムがなければ自動追加するマイグレーションロジック
+def run_migrations():
     db = SessionLocal()
     try:
         inspector = inspect(engine)
         columns = [col['name'] for col in inspector.get_columns('channels')]
+        
+        # country カラムの追加
         if 'country' not in columns:
             print("Migration: Adding 'country' column to 'channels' table...")
             db.execute(text("ALTER TABLE channels ADD COLUMN country VARCHAR"))
             db.commit()
             print("Migration: 'country' column added successfully.")
+            
+        # sort_order カラムの追加
+        if 'sort_order' not in columns:
+            print("Migration: Adding 'sort_order' column to 'channels' table...")
+            db.execute(text("ALTER TABLE channels ADD COLUMN sort_order INTEGER DEFAULT 0"))
+            db.commit()
+            print("Migration: 'sort_order' column added successfully.")
+            
+        # is_pinned カラムの追加
+        if 'is_pinned' not in columns:
+            print("Migration: Adding 'is_pinned' column to 'channels' table...")
+            db.execute(text("ALTER TABLE channels ADD COLUMN is_pinned BOOLEAN DEFAULT 0"))
+            db.commit()
+            print("Migration: 'is_pinned' column added successfully.")
+            
     except Exception as e:
         print(f"Migration warning: {e}")
         db.rollback()
@@ -61,7 +78,7 @@ def populate_missing_countries():
     finally:
         db.close()
 
-add_country_column_if_not_exists()
+run_migrations()
 populate_missing_countries()
 
 app = FastAPI(

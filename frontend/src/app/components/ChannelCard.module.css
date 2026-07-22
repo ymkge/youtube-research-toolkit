@@ -14,6 +14,12 @@
               box-shadow 0.25s ease,
               opacity 0.25s ease;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  user-select: none; /* ドラッグ中に文字選択が起きるのを防ぐ */
+}
+
+.card:active {
+  cursor: grabbing;
 }
 
 .card:hover {
@@ -44,10 +50,24 @@
   transform: scale(0.98);
 }
 
-.deleteButton {
+.dragging {
+  opacity: 0.3;
+  border: 2px dashed #8a2be2;
+  transform: scale(0.96);
+  box-shadow: none;
+}
+
+.actionButtons {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  z-index: 10;
+}
+
+.deleteButton {
   background: transparent;
   border: none;
   color: #555555;
@@ -55,7 +75,6 @@
   padding: 6px;
   border-radius: 6px;
   transition: color 0.2s, background-color 0.2s;
-  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -66,12 +85,39 @@
   background-color: rgba(255, 77, 77, 0.15);
 }
 
+.pinButton {
+  background: transparent;
+  border: none;
+  color: #555555;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: color 0.2s, background-color 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pinButton:hover {
+  color: #00bfff;
+  background-color: rgba(0, 191, 255, 0.15);
+}
+
+.pinned {
+  color: #00bfff;
+  transform: rotate(45deg);
+}
+
+.pinIconActive {
+  fill: #00bfff;
+}
+
 .header {
   display: flex;
   gap: 1rem;
   align-items: center;
   margin-bottom: 0.5rem;
-  padding-right: 1.5rem;
+  padding-right: 3rem; /* アクションボタンとタイトルが重ならないよう広げる */
 }
 
 .thumbnail {
@@ -114,7 +160,7 @@
 }
 
 .titleLink:hover {
-  color: #ff007f; /* ホバー時にブランドピンクに発光 */
+  color: #ff007f;
   text-decoration: underline;
 }
 

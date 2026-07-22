@@ -15,7 +15,14 @@ export interface Channel {
   average_views_per_video: number | null; // 1動画あたりの平均再生数
   average_upload_frequency: number | null; // 平均動画投稿頻度 (週単位)
   country: string | null; // 国名コード (JP, US など)
+  sort_order: number; // 表示順
+  is_pinned: boolean; // ピン留め状態
   updated_at: string;
+}
+
+export interface RegisterResponse {
+  channel: Channel;
+  isNew: boolean;
 }
 
 /**
@@ -30,9 +37,9 @@ export async function fetchChannels(): Promise<Channel[]> {
 }
 
 /**
- * 新しいチャンネルを登録します。
+ * 新しいチャンネルを登録します（重複時は更新）。
  */
-export async function registerChannel(identifier: string, importLimit: number = 50): Promise<Channel> {
+export async function registerChannel(identifier: string, importLimit: number = 50): Promise<RegisterResponse> {
   const res = await fetch(`${API_BASE_URL}/api/channels/`, {
     method: 'POST',
     headers: {
@@ -47,7 +54,9 @@ export async function registerChannel(identifier: string, importLimit: number = 
     throw new Error(message);
   }
 
-  return res.json();
+  const isNew = res.status === 201;
+  const channel = await res.json();
+  return { channel, isNew };
 }
 
 /**
@@ -61,6 +70,42 @@ export async function deleteChannel(channelId: number): Promise<void> {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     const message = errorData.detail || 'チャンネルの削除に失敗しました。';
+    throw new Error(message);
+  }
+}
+
+/**
+ * チャンネルのピン留め（最上部固定）状態を更新します。
+ */
+export async function updateChannelPin(channelId: number, isPinned: boolean): Promise<Channel> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/pin?is_pinned=${isPinned}`, {
+    method: 'PATCH',
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const message = errorData.detail || 'ピン留めの更新に失敗しました。';
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+/**
+ * ドラッグ＆ドロップ後の表示順を一括保存します。
+ */
+export async function updateChannelsSort(ids: number[]): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/sort`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ids }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const message = errorData.detail || '表示順の更新に失敗しました。';
     throw new Error(message);
   }
 }

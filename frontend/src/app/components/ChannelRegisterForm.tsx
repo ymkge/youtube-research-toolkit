@@ -24,8 +24,12 @@ export default function ChannelRegisterForm({ onRegisterSuccess }: ChannelRegist
     setSuccess(null);
 
     try {
-      const channel = await registerChannel(identifier.trim(), importLimit);
-      setSuccess(`「${channel.title}」を正常に登録しました！`);
+      const { channel, isNew } = await registerChannel(identifier.trim(), importLimit);
+      if (isNew) {
+        setSuccess(`「${channel.title}」を正常に登録しました！`);
+      } else {
+        setSuccess(`「${channel.title}」は登録済みです。最新情報に更新しました。`);
+      }
       setIdentifier('');
       onRegisterSuccess(channel);
     } catch (err: any) {

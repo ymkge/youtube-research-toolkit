@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 import datetime
@@ -17,6 +17,8 @@ class Channel(Base):
     video_count = Column(Integer, default=0)
     thumbnail_url = Column(String, nullable=True)
     country = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_pinned = Column(Boolean, default=False)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     # 1対多のリレーションシップ (チャンネル削除時に紐づく動画も削除)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class ChannelCreateRequest(BaseModel):
     identifier: str  # チャンネルID (UC...) またはハンドル (@...)
@@ -21,6 +21,11 @@ class ChannelResponse(BaseModel):
     average_views_per_video: Optional[float] = None
     average_upload_frequency: Optional[float] = None
     country: Optional[str] = None
+    sort_order: int
+    is_pinned: bool
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class ChannelSortRequest(BaseModel):
+    ids: List[int]

@@ -3,7 +3,11 @@ import sys
 import argparse
 import json
 import datetime
+from datetime import timezone, timedelta
 from sqlalchemy.orm import Session
+
+# 日本時間 (JST: UTC+9) の定義
+JST = timezone(timedelta(hours=+9))
 
 # backend ディレクトリをインポートパスに追加
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -49,7 +53,8 @@ def run_db_mode():
             print("No channels registered in the database.")
             return
 
-        today = datetime.date.today()
+        # 常に日本時間ベースで本日の日付を確定
+        today = datetime.datetime.now(JST).date()
         for channel in channels:
             try:
                 print(f"Fetching stats for: {channel.title} ({channel.youtube_channel_id})")
@@ -111,7 +116,7 @@ def run_json_mode():
             channels_to_fetch.append((c.youtube_channel_id, c.title))
     except Exception as e:
         print(f"Database connection skipped or failed: {e}. Reading targets from config or environment...")
-        # フォールバック: 環境変数 "MONITOR_CHANNELS" にカンマ区切りで ID リストがある場合
+        # フォールバック: 環境変数  "MONITOR_CHANNELS" にカンマ区切りで ID リストがある場合
         env_channels = os.environ.get("MONITOR_CHANNELS", "")
         if env_channels:
             for item in env_channels.split(","):
@@ -124,7 +129,8 @@ def run_json_mode():
         print("No channels target found for JSON sync.")
         return
 
-    today_str = datetime.date.today().isoformat() # YYYY-MM-DD
+    # 常に日本時間ベースで本日の日付文字列を確定
+    today_str = datetime.datetime.now(JST).date().isoformat() # YYYY-MM-DD
 
     for youtube_channel_id, title in channels_to_fetch:
         try:

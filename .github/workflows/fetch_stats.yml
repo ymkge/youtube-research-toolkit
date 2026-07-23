@@ -9,6 +9,8 @@ on:
 jobs:
   collect:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # リポジトリへの書き込み（Push）権限を付与して exit code 128 を回避
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

@@ -26,6 +26,15 @@ export interface RegisterResponse {
   isNew: boolean;
 }
 
+export interface ChannelStatsHistory {
+  id: number;
+  channel_id: number;
+  subscriber_count: number;
+  view_count: number;
+  video_count: number;
+  recorded_at: string; // YYYY-MM-DD
+}
+
 /**
  * 登録済みチャンネル一覧を取得します。
  */
@@ -109,4 +118,15 @@ export async function updateChannelsSort(ids: number[]): Promise<void> {
     const message = errorData.detail || '表示順の更新に失敗しました。';
     throw new Error(message);
   }
+}
+
+/**
+ * チャンネルの時系列統計データを取得します。
+ */
+export async function fetchChannelHistory(channelId: number): Promise<ChannelStatsHistory[]> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/history`);
+  if (!res.ok) {
+    throw new Error('統計履歴の取得に失敗しました。');
+  }
+  return res.json();
 }

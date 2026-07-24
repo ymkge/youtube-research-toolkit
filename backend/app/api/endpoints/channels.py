@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.channel import Channel
 from app.models.video import Video
+from app.models.channel_stats_history import ChannelStatsHistory
 from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest
+from app.schemas.channel_stats_history import ChannelStatsHistoryResponse
 from app.services.youtube import youtube_service
 from typing import List
 import datetime
@@ -201,3 +203,21 @@ def update_channels_sort(payload: ChannelSortRequest, db: Session = Depends(get_
             db_channel.sort_order = idx
     db.commit()
     return
+
+@router.get("/{channel_id}/history", response_model=List[ChannelStatsHistoryResponse])
+def get_channel_history(channel_id: int, db: Session = Depends(get_db)):
+    """
+    指定されたチャンネルの時系列統計データを日付昇順で取得します。
+    """
+    db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+    
+    history = db.query(ChannelStatsHistory).filter(
+        ChannelStatsHistory.channel_id == channel_id
+    ).order_by(ChannelStatsHistory.recorded_at.asc()).all()
+    
+    return history

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Channel } from '../utils/api';
+import { Channel, fetchChannelHistory, ChannelStatsHistory } from '../utils/api';
 import styles from './ChannelCard.module.css';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical } from 'lucide-react';
+import ChannelHistoryChart from './ChannelHistoryChart';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -70,6 +71,11 @@ export default function ChannelCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // トレンドグラフ表示用ステート
+  const [showChart, setShowChart] = useState(false);
+  const [history, setHistory] = useState<ChannelStatsHistory[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -93,6 +99,25 @@ export default function ChannelCard({
     }
   };
 
+  const handleTrendClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextState = !showChart;
+    setShowChart(nextState);
+
+    // グラフを表示する際、未ロードの場合のみAPIから履歴データをフェッチ
+    if (nextState && history.length === 0) {
+      setIsHistoryLoading(true);
+      try {
+        const data = await fetchChannelHistory(channel.id);
+        setHistory(data);
+      } catch (err) {
+        console.error('統計履歴データのロードに失敗しました:', err);
+      } finally {
+        setIsHistoryLoading(false);
+      }
+    }
+  };
+
   // YouTube チャンネルへのリンクURLを構築
   const channelUrl = channel.custom_url
     ? `https://www.youtube.com/${channel.custom_url}`
@@ -100,10 +125,21 @@ export default function ChannelCard({
 
   return (
     <div 
-      className={`${styles.card} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''}`}
+      className={`${styles.card} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart ? styles.expanded : ''}`}
       onMouseLeave={() => setIsMenuOpen(false)}
     >
       <div className={styles.actionButtons}>
+        {/* トレンド表示（グラフ）ボタン */}
+        <button 
+          className={`${styles.trendButton} ${showChart ? styles.trendActive : ''}`} 
+          onClick={handleTrendClick} 
+          title={showChart ? "トレンド表示を閉じる" : "統計トレンドを表示"}
+          disabled={isDeleting}
+        >
+          <TrendingUp size={14} />
+        </button>
+
+        {/* ピン留めボタン */}
         <button 
           className={`${styles.pinButton} ${channel.is_pinned ? styles.pinned : ''}`} 
           onClick={handlePinClick} 
@@ -113,6 +149,7 @@ export default function ChannelCard({
           <Pin size={14} className={channel.is_pinned ? styles.pinIconActive : ''} />
         </button>
 
+        {/* メニューボタン */}
         <button 
           className={`${styles.menuButton} ${isMenuOpen ? styles.menuActive : ''}`} 
           onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} 
@@ -136,7 +173,7 @@ export default function ChannelCard({
       </div>
 
       <div className={styles.header}>
-        {/* ドラッグ専用のGripハンドル (テキストコピペを妨げないための設計) */}
+        {/* ドラッグ専用のGripハンドル */}
         <div 
           className={styles.dragHandle}
           draggable="true"
@@ -194,7 +231,7 @@ export default function ChannelCard({
         {channel.description || '説明はありません。'}
       </p>
 
-      {/* 分析メトリクス用チップ行（平均動画時間 ＆ 平均投稿頻度 & 1動画平均再生） */}
+      {/* 分析メトリクス用チップ行 */}
       <div className={styles.chipsRow}>
         <div className={styles.durationChip} title="同期された動画の平均長さ">
           <Clock className={styles.durationIcon} size={13} />
@@ -237,6 +274,11 @@ export default function ChannelCard({
           <span className={styles.statLabel}>総再生数</span>
         </div>
       </div>
+
+      {/* ★ トレンド折れ線グラフコンポーネント (アコーディオン展開されるエリア) */}
+      {showChart && (
+        <ChannelHistoryChart history={history} isLoading={isHistoryLoading} />
+      )}
     </div>
   );
 }

@@ -1,0 +1,135 @@
+.chartContainer {
+  background-color: #121212;
+  border: 1px solid #222222;
+  border-radius: 8px;
+  padding: 0.75rem 0.5rem;
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.35rem;
+  background-color: #1a1a1a;
+  padding: 0.15rem;
+  border-radius: 6px;
+  border: 1px solid #252525;
+}
+
+.tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #888888;
+  font-size: 0.7rem;
+  font-family: inherit;
+  font-weight: 500;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: #ffffff;
+}
+
+.tabActive {
+  background-color: #222222;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.chartWrapper {
+  width: 100%;
+}
+
+/* カスタムツールチップのスタイル */
+.customTooltip {
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.tooltipDate {
+  margin: 0 0 0.15rem 0;
+  font-size: 0.7rem;
+  color: #888888;
+}
+
+.tooltipValue {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+/* ローディング状態のスタイル */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #121212;
+  border: 1px solid #222222;
+  border-radius: 8px;
+  height: 200px;
+  margin-top: 0.75rem;
+  color: #888888;
+  font-size: 0.8rem;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #222222;
+  border-top-color: #8a2be2;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 空データ状態のスタイル */
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background-color: #121212;
+  border: 1px solid #222222;
+  border-radius: 8px;
+  height: 200px;
+  margin-top: 0.75rem;
+  padding: 1.5rem;
+}
+
+.emptyContainer p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #aaaaaa;
+}
+
+.emptyTip {
+  font-size: 0.7rem !important;
+  color: #555555 !important;
+  margin-top: 0.35rem !important;
+  max-width: 280px;
+  line-height: 1.3;
+}

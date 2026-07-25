@@ -246,6 +246,17 @@ def run_sync_json_mode(db_session: Session = None):
                 except Exception as e:
                     print(f"Error processing item {item} for {youtube_channel_id}: {e}")
 
+            # 履歴のループ終了後、最新日付のデータで親テーブル (Channel) の統計も更新する
+            if history_data:
+                sorted_history = sorted(history_data, key=lambda x: x.get("date", ""))
+                latest_item = sorted_history[-1]
+                
+                channel.subscriber_count = latest_item["subscriber_count"]
+                channel.view_count = latest_item["view_count"]
+                channel.video_count = latest_item["video_count"]
+                channel.updated_at = datetime.datetime.utcnow()
+                print(f"  -> Updated parent Channel stats for '{channel.title}' with latest history date ({latest_item['date']})")
+
         db.commit()
         print("JSON stats history synchronization completed successfully.")
     finally:

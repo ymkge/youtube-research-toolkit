@@ -97,6 +97,7 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
     channel.average_upload_frequency = avg_freq
     channel.latest_video_published_at = latest_upload
     channel.updated_at = datetime.datetime.utcnow()
+    db.commit()
 
 @router.post("/", response_model=ChannelResponse, status_code=status.HTTP_201_CREATED)
 def register_channel(payload: ChannelCreateRequest, response: Response, db: Session = Depends(get_db)):

@@ -144,8 +144,10 @@ async def auto_sync_videos_background():
                         if uploads_playlist_id:
                             # 最新100件の動画を非同期マージ
                             sync_channel_videos(db, channel, uploads_playlist_id, import_limit=100)
+                            db.commit()
                             print(f"Auto-Sync: Successfully synchronized videos for '{channel.title}'.")
                 except Exception as ex:
+                    db.rollback()
                     print(f"Auto-Sync: Failed to synchronize videos for '{channel.title}': {ex}")
                 
                 # APIクォータ保護のため、1チャンネルごとに3秒待機

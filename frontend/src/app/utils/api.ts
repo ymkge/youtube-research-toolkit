@@ -49,7 +49,7 @@ export async function fetchChannels(): Promise<Channel[]> {
 /**
  * 新しいチャンネルを登録します（重複時は更新）。
  */
-export async function registerChannel(identifier: string, importLimit: number = 50): Promise<RegisterResponse> {
+export async function registerChannel(identifier: string, importLimit: number = 100): Promise<RegisterResponse> {
   const res = await fetch(`${API_BASE_URL}/api/channels/`, {
     method: 'POST',
     headers: {

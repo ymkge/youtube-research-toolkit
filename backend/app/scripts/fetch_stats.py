@@ -254,7 +254,7 @@ def run_sync_json_mode(db_session: Session = None):
                 channel.subscriber_count = latest_item["subscriber_count"]
                 channel.view_count = latest_item["view_count"]
                 channel.video_count = latest_item["video_count"]
-                channel.updated_at = datetime.datetime.utcnow()
+                # updated_at の更新を削除 (自動動画同期タスクの12時間キャッシュしきい値を保護するため)
                 print(f"  -> Updated parent Channel stats for '{channel.title}' with latest history date ({latest_item['date']})")
 
         db.commit()

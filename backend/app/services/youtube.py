@@ -73,8 +73,8 @@ class YouTubeService:
         published_at_str = snippet.get("publishedAt")
         published_at = None
         if published_at_str:
-            # Z をタイムゾーン表記に置換してパース
-            published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00"))
+            # Z をタイムゾーン表記に置換してパースし、SQLiteとの互換性のために timezone-naive に変換
+            published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
 
         return {
             "youtube_channel_id": channel_data.get("id"),
@@ -119,7 +119,7 @@ class YouTubeService:
                 published_at_str = snippet.get("publishedAt")
                 published_at = None
                 if published_at_str:
-                    published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00"))
+                    published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
 
                 videos.append({
                     "youtube_video_id": video_id,

@@ -65,6 +65,39 @@ def calculate_channel_metrics(db: Session, channel_id: int):
 
     return avg_duration, avg_views, avg_frequency, latest_upload
 
+def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str, import_limit: int = 100):
+    """
+    指定されたチャンネルの最新動画データを YouTube API から同期し、
+    メトリクスを再計算して親の Channel レコードを更新します。
+    """
+    if uploads_playlist_id:
+        recent_videos = youtube_service.get_recent_videos(
+            uploads_playlist_id, limit=import_limit
+        )
+        for video_data in recent_videos:
+            db_video = db.query(Video).filter(
+                Video.youtube_video_id == video_data["youtube_video_id"]
+            ).first()
+
+            if db_video:
+                # 既存動画の統計データ更新
+                for key, value in video_data.items():
+                    setattr(db_video, key, value)
+                db_video.updated_at = datetime.datetime.utcnow()
+            else:
+                # 新規動画の追加
+                new_video = Video(channel_id=channel.id, **video_data)
+                db.add(new_video)
+        db.flush()
+
+    # 統計情報の算出と親テーブルへの保存
+    avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, channel.id)
+    channel.average_video_duration = avg_duration
+    channel.average_views_per_video = avg_views
+    channel.average_upload_frequency = avg_freq
+    channel.latest_video_published_at = latest_upload
+    channel.updated_at = datetime.datetime.utcnow()
+
 @router.post("/", response_model=ChannelResponse, status_code=status.HTTP_201_CREATED)
 def register_channel(payload: ChannelCreateRequest, response: Response, db: Session = Depends(get_db)):
     # 1. YouTube API から情報を取得
@@ -102,23 +135,7 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
     # 3. チャンネルの最新動画を同期
     if uploads_playlist_id:
         try:
-            recent_videos = youtube_service.get_recent_videos(
-                uploads_playlist_id, limit=payload.import_limit
-            )
-            for video_data in recent_videos:
-                db_video = db.query(Video).filter(
-                    Video.youtube_video_id == video_data["youtube_video_id"]
-                ).first()
-
-                if db_video:
-                    # 既存動画の統計データ更新
-                    for key, value in video_data.items():
-                        setattr(db_video, key, value)
-                    db_video.updated_at = datetime.datetime.utcnow()
-                else:
-                    # 新規動画の追加
-                    new_video = Video(channel_id=db_channel.id, **video_data)
-                    db.add(new_video)
+            sync_channel_videos(db, db_channel, uploads_playlist_id, payload.import_limit)
         except Exception as e:
             # 動画取得でエラーが発生した場合、それまでのチャンネル追加はコミットしつつ一部エラーを通知
             db.commit()
@@ -129,13 +146,6 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
 
     db.commit()
     db.refresh(db_channel)
-    
-    # 統計情報の算出とスキーマ動的バインド
-    avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, db_channel.id)
-    db_channel.average_video_duration = avg_duration
-    db_channel.average_views_per_video = avg_views
-    db_channel.average_upload_frequency = avg_freq
-    db_channel.latest_video_published_at = latest_upload
     
     # 重複更新された場合はステータスコードを 200 OK に変更
     if not is_new:

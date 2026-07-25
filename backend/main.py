@@ -112,11 +112,57 @@ def read_root():
 def health_check():
     return {"status": "healthy"}
 
+async def auto_sync_videos_background():
+    """
+    起動後にバックグラウンドで全チャンネルの動画データを YouTube API から非同期に同期します。
+    API 制限 (Quota) 回避のため、最後に更新（updated_at）してから 12時間以上経過したチャンネルのみ同期。
+    """
+    import asyncio
+    import datetime
+    from app.models.channel import Channel
+    from app.services.youtube import youtube_service
+    from app.api.endpoints.channels import sync_channel_videos
+    
+    print("Auto-Sync: Background video synchronization task started.")
+    await asyncio.sleep(5)  # サーバー起動完了を待つディレイ
+
+    db = SessionLocal()
+    try:
+        channels = db.query(Channel).all()
+        now = datetime.datetime.utcnow()
+        threshold = now - datetime.timedelta(hours=12)
+        
+        for channel in channels:
+            # 12時間以上更新されていない場合
+            if not channel.updated_at or channel.updated_at < threshold:
+                print(f"Auto-Sync: Automatically synchronizing videos for channel '{channel.title}'...")
+                try:
+                    if youtube_service.is_configured():
+                        info = youtube_service.get_channel_info(channel.youtube_channel_id)
+                        uploads_playlist_id = info.get("uploads_playlist_id")
+                        
+                        if uploads_playlist_id:
+                            # 最新100件の動画を非同期マージ
+                            sync_channel_videos(db, channel, uploads_playlist_id, import_limit=100)
+                            print(f"Auto-Sync: Successfully synchronized videos for '{channel.title}'.")
+                except Exception as ex:
+                    print(f"Auto-Sync: Failed to synchronize videos for '{channel.title}': {ex}")
+                
+                # APIクォータ保護のため、1チャンネルごとに3秒待機
+                await asyncio.sleep(3)
+    except Exception as e:
+        print(f"Auto-Sync: Background task encountered error: {e}")
+    finally:
+        db.close()
+        print("Auto-Sync: Background video synchronization task completed.")
+
 @app.on_event("startup")
 def startup_event():
     """
     サーバー起動時に JSON 履歴ファイル（GitHub Actionsからプッシュされた時系列統計）を SQLite DB にマージします。
+    また、バックグラウンドで動画データの自動同期タスクを開始します。
     """
+    import asyncio
     from app.scripts.fetch_stats import run_sync_json_mode
     print("Startup: Synchronizing JSON stats history files into SQLite database...")
     try:
@@ -124,3 +170,6 @@ def startup_event():
         print("Startup: Synchronization completed.")
     except Exception as e:
         print(f"Startup warning (JSON Sync failed): {e}")
+
+    # バックグラウンドタスクとして非同期起動（ノンブロッキング）
+    asyncio.create_task(auto_sync_videos_background())

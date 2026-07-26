@@ -164,6 +164,11 @@ def startup_event():
     サーバー起動時に JSON 履歴ファイル（GitHub Actionsからプッシュされた時系列統計）を SQLite DB にマージします。
     また、バックグラウンドで動画データの自動同期タスクを開始します。
     """
+    import os
+    if os.getenv("TESTING") == "True":
+        print("Startup: Running in test mode. Skipping JSON sync and background tasks.")
+        return
+
     import asyncio
     from app.scripts.fetch_stats import run_sync_json_mode
     print("Startup: Synchronizing JSON stats history files into SQLite database...")

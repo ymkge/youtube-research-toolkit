@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchChannels, Channel, deleteChannel, updateChannelPin, updateChannelsSort } from './utils/api';
+import { fetchChannels, Channel, deleteChannel, updateChannelPin, updateChannelsSort, fetchChannelAIAnalysis, AIAnalysisResponse } from './utils/api';
 import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
+import AIAnalysisModal from './components/AIAnalysisModal';
 import styles from './page.module.css';
 
 export default function Home() {
@@ -11,6 +12,29 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<number | null>(null);
+
+  // AI分析表示モーダル用のステート
+  const [activeAnalysisChannel, setActiveAnalysisChannel] = useState<Channel | null>(null);
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleShowAIAnalysis = async (channel: Channel) => {
+    setActiveAnalysisChannel(channel);
+    setIsAILoading(true);
+    setAiError(null);
+    setAiAnalysis(null);
+
+    try {
+      const data = await fetchChannelAIAnalysis(channel.id);
+      setAiAnalysis(data);
+    } catch (err: any) {
+      setAiError(err.message || 'AI分析の生成に失敗しました。');
+      console.error('AI分析のロードに失敗しました:', err);
+    } finally {
+      setIsAILoading(false);
+    }
+  };
 
   const loadChannels = async () => {
     try {
@@ -183,12 +207,23 @@ export default function Home() {
                   onDragOver={handleDragOver}
                   onDragEnd={handleDragEnd}
                   isDraggingNow={channel.id === draggedId}
+                  onShowAIAnalysis={handleShowAIAnalysis}
                 />
               ))}
             </div>
           )}
         </section>
       </main>
+
+      {/* 🤖 AI分析結果詳細モーダル */}
+      <AIAnalysisModal
+        isOpen={activeAnalysisChannel !== null}
+        onClose={() => setActiveAnalysisChannel(null)}
+        isLoading={isAILoading}
+        error={aiError}
+        analysis={aiAnalysis}
+        channelTitle={activeAnalysisChannel?.title || ''}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Channel, fetchChannelHistory, ChannelStatsHistory, fetchChannelAIAnalysis, AIAnalysisResponse } from '../utils/api';
+import { Channel, fetchChannelHistory, ChannelStatsHistory } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
 import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight } from 'lucide-react';
@@ -12,6 +12,7 @@ interface ChannelCardProps {
   onDragOver: (e: React.DragEvent, channelId: number) => void;
   onDragEnd: (e: React.DragEvent) => void;
   isDraggingNow?: boolean;
+  onShowAIAnalysis: (channel: Channel) => void;
 }
 
 // 数値を読みやすい単位（万、億）にフォーマットする関数
@@ -66,7 +67,8 @@ export default function ChannelCard({
   onDragStart,
   onDragOver,
   onDragEnd,
-  isDraggingNow = false
+  isDraggingNow = false,
+  onShowAIAnalysis
 }: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
@@ -76,12 +78,6 @@ export default function ChannelCard({
   const [showChart, setShowChart] = useState(false);
   const [history, setHistory] = useState<ChannelStatsHistory[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-
-  // AI分析表示用ステート
-  const [showAI, setShowAI] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
-  const [isAILoading, setIsAILoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -124,26 +120,7 @@ export default function ChannelCard({
     }
   };
 
-  const handleAIClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const nextState = !showAI;
-    setShowAI(nextState);
-    setAiError(null);
 
-    // AIレポートを表示する際、未ロードの場合のみAPIから分析レポートをフェッチ
-    if (nextState && !aiAnalysis) {
-      setIsAILoading(true);
-      try {
-        const data = await fetchChannelAIAnalysis(channel.id);
-        setAiAnalysis(data);
-      } catch (err: any) {
-        setAiError(err.message || 'AI分析の生成に失敗しました。');
-        console.error('AI分析のロードに失敗しました:', err);
-      } finally {
-        setIsAILoading(false);
-      }
-    }
-  };
 
   // YouTube チャンネルへのリンクURLを構築
   const channelUrl = channel.custom_url
@@ -152,7 +129,7 @@ export default function ChannelCard({
 
   return (
     <div 
-      className={`${styles.card} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart || showAI ? styles.expanded : ''}`}
+      className={`${styles.card} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart ? styles.expanded : ''}`}
       onMouseLeave={() => setIsMenuOpen(false)}
     >
       <div className={styles.actionButtons}>
@@ -168,9 +145,9 @@ export default function ChannelCard({
 
         {/* AI分析ボタン */}
         <button 
-          className={`${styles.aiButton} ${showAI ? styles.aiActive : ''}`} 
-          onClick={handleAIClick} 
-          title={showAI ? "AI分析を閉じる" : "AIポジショニング分析を表示"}
+          className={styles.aiButton} 
+          onClick={(e) => { e.stopPropagation(); onShowAIAnalysis(channel); }} 
+          title="AIポジショニング分析を表示"
           disabled={isDeleting}
         >
           <Brain size={14} />
@@ -315,114 +292,6 @@ export default function ChannelCard({
       {/* ★ トレンド折れ線グラフコンポーネント (アコーディオン展開されるエリア) */}
       {showChart && (
         <ChannelHistoryChart history={history} isLoading={isHistoryLoading} />
-      )}
-
-      {/* 🤖 AI分析結果エリア (アコーディオン展開) */}
-      {showAI && (
-        <div className={styles.aiReportArea}>
-          {isAILoading && (
-            <div className={styles.aiSkeletonContainer}>
-              <div className={styles.aiSkeletonTitle}>
-                <Sparkles className={styles.aiSkeletonIcon} size={16} />
-                <span>AIが競合データを分析中...</span>
-              </div>
-              <div className={styles.aiSkeletonLine} style={{ width: '90%' }}></div>
-              <div className={styles.aiSkeletonLine} style={{ width: '80%' }}></div>
-              <div className={styles.aiSkeletonLine} style={{ width: '85%' }}></div>
-              <div className={styles.aiSkeletonGrid}>
-                <div className={styles.aiSkeletonCard}></div>
-                <div className={styles.aiSkeletonCard}></div>
-              </div>
-            </div>
-          )}
-
-          {aiError && (
-            <div className={styles.aiErrorContainer}>
-              <AlertCircle size={18} className={styles.aiErrorIcon} />
-              <div className={styles.aiErrorText}>
-                <strong>分析に失敗しました</strong>
-                <p>{aiError}</p>
-              </div>
-            </div>
-          )}
-
-          {!isAILoading && !aiError && aiAnalysis && (
-            <div className={styles.aiReportContent}>
-              <div className={styles.aiReportHeader}>
-                <Brain size={16} className={styles.aiHeaderIcon} />
-                <h4>AIポジショニング分析レポート</h4>
-              </div>
-
-              {/* 要約 */}
-              <p className={styles.aiSummary}>{aiAnalysis.channel_summary}</p>
-
-              {/* 強みと弱みの2カラム */}
-              <div className={styles.aiGrid2}>
-                <div className={`${styles.aiCard} ${styles.aiCardStrength}`}>
-                  <h5>
-                    <CheckCircle2 size={14} className={styles.aiCardIconStrength} />
-                    <span>競合独自の強み</span>
-                  </h5>
-                  <ul>
-                    {aiAnalysis.strengths.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className={`${styles.aiCard} ${styles.aiCardWeakness}`}>
-                  <h5>
-                    <AlertCircle size={14} className={styles.aiCardIconWeakness} />
-                    <span>弱み・未開拓領域</span>
-                  </h5>
-                  <ul>
-                    {aiAnalysis.weaknesses.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* 主要ヒットテーマ */}
-              <div className={styles.aiSection}>
-                <h5 className={styles.aiSectionTitle}>
-                  <Trophy size={14} className={styles.aiSectionIconTrophy} />
-                  <span>高パフォーマンスなヒットテーマ (最大3つ)</span>
-                </h5>
-                <div className={styles.aiThemesGrid}>
-                  {aiAnalysis.top_performing_themes.map((theme, idx) => (
-                    <div key={idx} className={styles.aiThemeCard}>
-                      <div className={styles.aiThemeBadge}>Theme {idx + 1}</div>
-                      <h6>{theme.theme_name}</h6>
-                      <p>{theme.reason_for_popularity}</p>
-                      <div className={styles.aiExampleVideo}>
-                        <span>代表動画:</span> {theme.example_video_title}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 差別化アドバイス */}
-              <div className={`${styles.aiCard} ${styles.aiCardAdvice}`}>
-                <h5>
-                  <ArrowRight size={14} className={styles.aiCardIconAdvice} />
-                  <span>自チャンネルの差別化・ポジショニング戦略</span>
-                </h5>
-                <ul>
-                  {aiAnalysis.positioning_advice.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* 生成日時 */}
-              <div className={styles.aiReportFooter}>
-                分析日時: {new Date(aiAnalysis.generated_at).toLocaleString('ja-JP')}
-              </div>
-            </div>
-          )}
-        </div>
       )}
     </div>
   );

@@ -99,3 +99,58 @@ def test_analyze_channel_success_and_cache(mock_ai, client, db):
     assert response3.status_code == 200
     # 呼び出し回数が 2回 に増えたことを検証
     assert mock_ai.analyze_channel_positioning.call_count == 2
+
+@patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_with_none_values(mock_ai, client, db):
+    """
+    登録者数や再生数、動画の高評価・コメント数が None の状態でリクエストを送った際、
+    エラー（TypeError）にならず正常に 0 として処理されて AI サービスが呼ばれることを検証。
+    """
+    c = Channel(
+        youtube_channel_id="UC_NONE_VALUES",
+        title="None Values Channel",
+        subscriber_count=None,
+        view_count=None,
+        description=None,
+        sort_order=0
+    )
+    db.add(c)
+    db.flush()
+    v = Video(
+        channel_id=c.id,
+        youtube_video_id="v_none_id",
+        title="Video Title",
+        view_count=None,
+        like_count=None,
+        comment_count=None,
+        published_at=datetime.utcnow()
+    )
+    db.add(v)
+    db.commit()
+
+    # AIサービスのモック設定
+    mock_ai.is_configured.return_value = True
+    
+    mock_response = AIAnalysisResponse(
+        **MOCK_AI_RESPONSE,
+        generated_at=datetime.utcnow()
+    )
+    mock_ai.analyze_channel_positioning.return_value = mock_response
+
+    # API呼び出し
+    response = client.post(f"/api/channels/{c.id}/analyze")
+    assert response.status_code == 200
+    assert response.json()["channel_summary"] == MOCK_AI_RESPONSE["channel_summary"]
+    assert mock_ai.analyze_channel_positioning.call_count == 1
+    
+    # 呼び出された時の引数 (channel_dict) を確認し、値のフォールバック状態を検証
+    called_channel_data = mock_ai.analyze_channel_positioning.call_args[0][0]
+    assert called_channel_data["subscriber_count"] == 0  # DB default=0
+    assert called_channel_data["view_count"] == 0        # DB default=0
+    assert called_channel_data["description"] is None
+
+    # 呼び出された時の引数 (videos_list) を確認し、値のフォールバック状態を検証
+    called_video_data = mock_ai.analyze_channel_positioning.call_args[0][1][0]
+    assert called_video_data["view_count"] == 0          # Video view_count default=0
+    assert called_video_data["like_count"] is None
+    assert called_video_data["comment_count"] is None

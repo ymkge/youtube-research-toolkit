@@ -6,8 +6,11 @@ from app.models.video import Video
 from app.models.channel_stats_history import ChannelStatsHistory
 from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest
 from app.schemas.channel_stats_history import ChannelStatsHistoryResponse
+from app.schemas.ai_analysis import AIAnalysisResponse
+from app.services.ai import ai_service
 from app.services.youtube import youtube_service
 from typing import List
+import json
 import datetime
 import re
 
@@ -232,3 +235,100 @@ def get_channel_history(channel_id: int, db: Session = Depends(get_db)):
     ).order_by(ChannelStatsHistory.recorded_at.asc()).all()
     
     return history
+
+@router.post("/{channel_id}/analyze", response_model=AIAnalysisResponse)
+def analyze_channel(channel_id: int, db: Session = Depends(get_db)):
+    """
+    指定されたチャンネルのAIポジショニング分析レポートを生成、またはキャッシュから返却します。
+    """
+    # 1. チャンネルの存在チェック
+    db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+    
+    # 2. 最新100件の動画を取得
+    videos = db.query(Video).filter(
+        Video.channel_id == channel_id
+    ).order_by(Video.published_at.desc()).limit(100).all()
+    
+    if not videos:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="分析に必要な動画データがありません。先にチャンネル動画を同期してください。"
+        )
+
+    # 3. インテリジェントキャッシュの判定
+    # キャッシュデータが存在し、かつ前回の生成時刻が動画の最終同期時刻よりも新しい場合
+    if db_channel.ai_analysis and db_channel.ai_analysis_generated_at:
+        video_sync_time = db_channel.updated_at
+        analysis_gen_time = db_channel.ai_analysis_generated_at
+        
+        # タイムゾーン情報を剥いで比較
+        if video_sync_time and analysis_gen_time:
+            video_sync_time = video_sync_time.replace(tzinfo=None)
+            analysis_gen_time = analysis_gen_time.replace(tzinfo=None)
+            
+            if analysis_gen_time >= video_sync_time:
+                try:
+                    cached_data = json.loads(db_channel.ai_analysis)
+                    # キャッシュデータに生成日時を追加して返却
+                    cached_data["generated_at"] = db_channel.ai_analysis_generated_at
+                    return AIAnalysisResponse(**cached_data)
+                except Exception as e:
+                    print(f"Failed to parse cached AI analysis: {e}")
+
+    # 4. API キーの設定チェックとエラーハンドリング
+    if not ai_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Gemini APIキーが設定されていません。バックエンドの環境変数 GEMINI_API_KEY を設定してください。"
+        )
+
+    # 5. コンテキストデータの整形
+    avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, db_channel.id)
+    
+    channel_dict = {
+        "title": db_channel.title,
+        "subscriber_count": db_channel.subscriber_count,
+        "view_count": db_channel.view_count,
+        "average_views_per_video": avg_views or 0,
+        "description": db_channel.description
+    }
+    
+    videos_list = [
+        {
+            "title": v.title,
+            "published_at": v.published_at,
+            "view_count": v.view_count,
+            "like_count": v.like_count,
+            "comment_count": v.comment_count,
+            "duration": v.duration,
+            "tags": v.tags
+        }
+        for v in videos
+    ]
+
+    # 6. AI分析の実行とエラーハンドリング
+    try:
+        analysis_result = ai_service.analyze_channel_positioning(channel_dict, videos_list)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI分析サービスに一時的に接続できません: {str(e)}"
+        )
+
+    # 7. 結果をキャッシュ保存
+    generated_at_val = datetime.datetime.utcnow()
+    analysis_result.generated_at = generated_at_val
+    
+    # model_dump_json() は datetime も適切にシリアライズします
+    db_channel.ai_analysis = analysis_result.model_dump_json()
+    db_channel.ai_analysis_generated_at = generated_at_val
+    # commit時のonupdateによるミリ秒のズレを防ぐため、updated_at も同一の値を明示的に代入
+    db_channel.updated_at = generated_at_val
+    db.commit()
+
+    return analysis_result

@@ -42,6 +42,20 @@ def run_migrations():
             db.commit()
             print("Migration: 'is_pinned' column added successfully.")
             
+        # ai_analysis カラムの追加
+        if 'ai_analysis' not in columns:
+            print("Migration: Adding 'ai_analysis' column to 'channels' table...")
+            db.execute(text("ALTER TABLE channels ADD COLUMN ai_analysis TEXT"))
+            db.commit()
+            print("Migration: 'ai_analysis' column added successfully.")
+
+        # ai_analysis_generated_at カラムの追加
+        if 'ai_analysis_generated_at' not in columns:
+            print("Migration: Adding 'ai_analysis_generated_at' column to 'channels' table...")
+            db.execute(text("ALTER TABLE channels ADD COLUMN ai_analysis_generated_at DATETIME"))
+            db.commit()
+            print("Migration: 'ai_analysis_generated_at' column added successfully.")
+            
     except Exception as e:
         print(f"Migration warning: {e}")
         db.rollback()

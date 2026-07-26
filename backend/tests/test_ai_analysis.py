@@ -1,0 +1,101 @@
+import pytest
+from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta
+from app.models.channel import Channel
+from app.models.video import Video
+from app.schemas.ai_analysis import AIAnalysisResponse
+from app.core.config import settings
+
+# モック用のダミーAIレスポンス
+MOCK_AI_RESPONSE = {
+    "channel_summary": "テスト用の要約文です。150文字以内の制約があります。",
+    "strengths": ["強み1です", "強み2です"],
+    "weaknesses": ["弱み1です", "弱み2です"],
+    "top_performing_themes": [
+        {
+            "theme_name": "テーマ名",
+            "reason_for_popularity": "人気理由",
+            "example_video_title": "動画タイトル"
+        }
+    ],
+    "positioning_advice": ["アドバイス1", "アドバイス2"]
+}
+
+def test_analyze_channel_no_videos(client, db):
+    """
+    動画が1件もない場合に、分析要求が 400 Bad Request になるかを検証。
+    """
+    c = Channel(youtube_channel_id="UC_NO_V", title="No Videos Channel", sort_order=0)
+    db.add(c)
+    db.commit()
+
+    response = client.post(f"/api/channels/{c.id}/analyze")
+    assert response.status_code == 400
+    assert "分析に必要な動画データがありません" in response.json()["detail"]
+
+@patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_no_api_key(mock_ai, client, db):
+    """
+    GEMINI_API_KEY が未設定の場合に 400 Bad Request になるかを検証。
+    """
+    # チャンネルと動画を登録
+    c = Channel(youtube_channel_id="UC_NO_KEY", title="No Key Channel", sort_order=0)
+    db.add(c)
+    db.flush()
+    v = Video(channel_id=c.id, youtube_video_id="video_id", title="Video Title", published_at=datetime.utcnow())
+    db.add(v)
+    db.commit()
+
+    # API キーを未設定にする
+    mock_ai.is_configured.return_value = False
+
+    response = client.post(f"/api/channels/{c.id}/analyze")
+    assert response.status_code == 400
+    assert "APIキーが設定されていません" in response.json()["detail"]
+
+@patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_success_and_cache(mock_ai, client, db):
+    """
+    正常系：初回は AI サービスを呼び出し、2回目はキャッシュから値を取得すること（モックが呼ばれないこと）を検証。
+    """
+    c = Channel(youtube_channel_id="UC_CACHE_TEST", title="Cache Channel", sort_order=0)
+    db.add(c)
+    db.flush()
+    v = Video(channel_id=c.id, youtube_video_id="v_id", title="Video Title", published_at=datetime.utcnow() - timedelta(hours=1))
+    db.add(v)
+    db.commit()
+
+    # AIサービスのモック設定
+    mock_ai.is_configured.return_value = True
+    
+    # 戻り値を AIAnalysisResponse の型で作成
+    mock_response = AIAnalysisResponse(
+        **MOCK_AI_RESPONSE,
+        generated_at=datetime.utcnow()
+    )
+    mock_ai.analyze_channel_positioning.return_value = mock_response
+
+    # 1. 初回リクエスト（API実行）
+    response1 = client.post(f"/api/channels/{c.id}/analyze")
+    assert response1.status_code == 200
+    assert response1.json()["channel_summary"] == MOCK_AI_RESPONSE["channel_summary"]
+    assert mock_ai.analyze_channel_positioning.call_count == 1
+
+    # 2. 2回目リクエスト（キャッシュから返るため、分析メソッドの呼び出し回数は 1回 のままであるべき）
+    response2 = client.post(f"/api/channels/{c.id}/analyze")
+    assert response2.status_code == 200
+    assert response2.json()["channel_summary"] == MOCK_AI_RESPONSE["channel_summary"]
+    # 呼び出し回数が 1回 から増えていない（キャッシュが使われた）ことを検証
+    assert mock_ai.analyze_channel_positioning.call_count == 1
+
+    # 3. キャッシュ期限パージ検証: 動画データが同期され、updated_at が更新された場合
+    # 最終更新（同期）時刻を「分析生成日時よりも未来」に書き換える
+    db.refresh(c)
+    c.updated_at = datetime.utcnow() + timedelta(minutes=5)
+    db.commit()
+
+    # 3回目リクエスト（動画同期が入ったためキャッシュが無効化され、再び API コールが走る）
+    response3 = client.post(f"/api/channels/{c.id}/analyze")
+    assert response3.status_code == 200
+    # 呼び出し回数が 2回 に増えたことを検証
+    assert mock_ai.analyze_channel_positioning.call_count == 2

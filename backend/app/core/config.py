@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     # API Keys
     YOUTUBE_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-flash-latest"
 
     model_config = SettingsConfigDict(
         env_file=".env",

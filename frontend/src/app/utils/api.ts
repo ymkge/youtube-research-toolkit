@@ -35,6 +35,21 @@ export interface ChannelStatsHistory {
   recorded_at: string; // YYYY-MM-DD
 }
 
+export interface AIAnalysisTheme {
+  theme_name: string;
+  reason_for_popularity: string;
+  example_video_title: string;
+}
+
+export interface AIAnalysisResponse {
+  channel_summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  top_performing_themes: AIAnalysisTheme[];
+  positioning_advice: string[];
+  generated_at: string;
+}
+
 /**
  * 登録済みチャンネル一覧を取得します。
  */
@@ -128,5 +143,22 @@ export async function fetchChannelHistory(channelId: number): Promise<ChannelSta
   if (!res.ok) {
     throw new Error('統計履歴の取得に失敗しました。');
   }
+  return res.json();
+}
+
+/**
+ * チャンネルのAIポジショニング分析レポートを取得（生成）します。
+ */
+export async function fetchChannelAIAnalysis(channelId: number): Promise<AIAnalysisResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/analyze`, {
+    method: 'POST',
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const message = errorData.detail || 'AI分析の生成に失敗しました。';
+    throw new Error(message);
+  }
+
   return res.json();
 }

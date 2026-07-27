@@ -178,6 +178,9 @@ export default function Home() {
           >
             <LayoutDashboard size={16} />
             <span>ダッシュボード</span>
+            {channels.length > 0 && (
+              <span className={styles.tabBadge}>{channels.length}</span>
+            )}
           </button>
           <button
             className={`${styles.tabBtn} ${activeTab === 'comparison' ? styles.tabActive : ''}`}
@@ -197,7 +200,14 @@ export default function Home() {
             </section>
 
             <section className={styles.dashboardSection}>
-              <h2 className={styles.sectionTitle}>追跡中の競合チャンネル</h2>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>追跡中の競合チャンネル</h2>
+                {!isLoading && (
+                  <span className={styles.countBadge}>
+                    登録中: <strong>{channels.length}</strong> 件
+                  </span>
+                )}
+              </div>
 
               {isLoading ? (
                 <div className={styles.loadingArea}>

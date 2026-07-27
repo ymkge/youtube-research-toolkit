@@ -59,6 +59,8 @@ def test_get_channels_comparison_success(client, db):
     assert "channels" in data
     assert "timeline" in data
     assert len(data["channels"]) == 3
+    assert "dash_pattern" in data["channels"][0]
+    assert data["channels"][0]["dash_pattern"] == "none"
 
     # チャンネルCの has_history が False であることを検証
     c_info = next(c for c in data["channels"] if c["id"] == cC.id)

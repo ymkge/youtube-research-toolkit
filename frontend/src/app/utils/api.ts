@@ -172,6 +172,7 @@ export interface ComparisonChannelItem {
   youtube_channel_id: string;
   thumbnail_url: string | null;
   color: string;
+  dash_pattern: string;
   has_history: boolean;
   history_count: number;
 }

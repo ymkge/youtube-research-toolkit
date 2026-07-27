@@ -29,6 +29,8 @@ export default function GrowthComparisonView() {
   const [error, setError] = useState<string | null>(null);
   // 選択されたチャンネルIDのセット
   const [selectedChannelIds, setSelectedChannelIds] = useState<number[]>([]);
+  // ホバー（強調表示）中のチャンネルID
+  const [hoveredChannelId, setHoveredChannelId] = useState<number | null>(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -125,7 +127,7 @@ export default function GrowthComparisonView() {
           </div>
         </div>
       );
-    };
+    }
     return null;
   };
 
@@ -155,7 +157,7 @@ export default function GrowthComparisonView() {
           </div>
         </div>
       );
-    };
+    }
     return null;
   };
 
@@ -166,7 +168,7 @@ export default function GrowthComparisonView() {
         <div className={styles.controlHeader}>
           <h3>
             <TrendingUp size={18} className={styles.iconTrend} />
-            <span>比較フィルター (表示チャンネルの選択)</span>
+            <span>比較フィルター (表示チャンネルの選択 / ホバーでハイライト)</span>
           </h3>
           <div className={styles.btnGroup}>
             <button onClick={selectAll} className={styles.actionBtn}>
@@ -182,16 +184,19 @@ export default function GrowthComparisonView() {
         <div className={styles.filterGrid}>
           {data.channels.map((channel) => {
             const isSelected = selectedChannelIds.includes(channel.id);
+            const isHovered = hoveredChannelId === channel.id;
             const disabled = !channel.has_history;
 
             return (
               <button
                 key={channel.id}
                 onClick={() => !disabled && toggleChannel(channel.id)}
+                onMouseEnter={() => !disabled && setHoveredChannelId(channel.id)}
+                onMouseLeave={() => setHoveredChannelId(null)}
                 disabled={disabled}
                 className={`${styles.filterChip} ${isSelected ? styles.chipSelected : ''} ${
-                  disabled ? styles.chipDisabled : ''
-                }`}
+                  isHovered ? styles.chipHovered : ''
+                } ${disabled ? styles.chipDisabled : ''}`}
                 style={{
                   borderColor: isSelected ? channel.color : 'transparent',
                 }}
@@ -200,6 +205,10 @@ export default function GrowthComparisonView() {
                   className={styles.colorDot}
                   style={{ backgroundColor: disabled ? '#444' : channel.color }}
                 />
+                {/* 線のパターンの表示インジケーター */}
+                <span className={styles.dashIndicator} style={{ color: channel.color }}>
+                  {channel.dash_pattern === 'none' ? '━' : '╌'}
+                </span>
                 <span className={styles.chipTitle}>{channel.title}</span>
                 {disabled && <span className={styles.disabledLabel}>(データなし)</span>}
               </button>
@@ -217,7 +226,7 @@ export default function GrowthComparisonView() {
             <h4>登録者数の累積成長率 (%) 比較</h4>
           </div>
           <div className={styles.chartBody}>
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={340}>
               <LineChart data={data.timeline} margin={{ top: 15, right: 30, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
                 <XAxis dataKey="date" stroke="#777777" tick={{ fontSize: 11 }} />
@@ -228,18 +237,30 @@ export default function GrowthComparisonView() {
                   domain={['auto', 'auto']}
                 />
                 <Tooltip content={<CustomSubTooltip />} />
-                {selectedChannels.map((channel) => (
-                  <Line
-                    key={channel.id}
-                    type="monotone"
-                    dataKey={`sub_growth_${channel.id}`}
-                    name={channel.title}
-                    stroke={channel.color}
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: channel.color }}
-                    activeDot={{ r: 6 }}
-                  />
-                ))}
+                {selectedChannels.map((channel) => {
+                  const isHovered = hoveredChannelId === channel.id;
+                  const hasHovered = hoveredChannelId !== null;
+                  return (
+                    <Line
+                      key={channel.id}
+                      type="monotone"
+                      dataKey={`sub_growth_${channel.id}`}
+                      name={channel.title}
+                      stroke={channel.color}
+                      strokeWidth={isHovered ? 4.5 : 2.5}
+                      strokeOpacity={hasHovered ? (isHovered ? 1.0 : 0.15) : 1.0}
+                      strokeDasharray={
+                        channel.dash_pattern === 'none' ? undefined : channel.dash_pattern
+                      }
+                      dot={{
+                        r: isHovered ? 5 : 3,
+                        fill: channel.color,
+                        fillOpacity: hasHovered ? (isHovered ? 1.0 : 0.2) : 1.0,
+                      }}
+                      activeDot={{ r: 7 }}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -252,7 +273,7 @@ export default function GrowthComparisonView() {
             <h4>総再生数の累積成長率 (%) 比較</h4>
           </div>
           <div className={styles.chartBody}>
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={340}>
               <LineChart data={data.timeline} margin={{ top: 15, right: 30, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
                 <XAxis dataKey="date" stroke="#777777" tick={{ fontSize: 11 }} />
@@ -263,18 +284,30 @@ export default function GrowthComparisonView() {
                   domain={['auto', 'auto']}
                 />
                 <Tooltip content={<CustomViewTooltip />} />
-                {selectedChannels.map((channel) => (
-                  <Line
-                    key={channel.id}
-                    type="monotone"
-                    dataKey={`view_growth_${channel.id}`}
-                    name={channel.title}
-                    stroke={channel.color}
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: channel.color }}
-                    activeDot={{ r: 6 }}
-                  />
-                ))}
+                {selectedChannels.map((channel) => {
+                  const isHovered = hoveredChannelId === channel.id;
+                  const hasHovered = hoveredChannelId !== null;
+                  return (
+                    <Line
+                      key={channel.id}
+                      type="monotone"
+                      dataKey={`view_growth_${channel.id}`}
+                      name={channel.title}
+                      stroke={channel.color}
+                      strokeWidth={isHovered ? 4.5 : 2.5}
+                      strokeOpacity={hasHovered ? (isHovered ? 1.0 : 0.15) : 1.0}
+                      strokeDasharray={
+                        channel.dash_pattern === 'none' ? undefined : channel.dash_pattern
+                      }
+                      dot={{
+                        r: isHovered ? 5 : 3,
+                        fill: channel.color,
+                        fillOpacity: hasHovered ? (isHovered ? 1.0 : 0.2) : 1.0,
+                      }}
+                      activeDot={{ r: 7 }}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           </div>

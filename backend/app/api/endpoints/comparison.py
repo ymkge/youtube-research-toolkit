@@ -7,18 +7,36 @@ from app.models.channel_stats_history import ChannelStatsHistory
 
 router = APIRouter()
 
-# グラフ用カラーパレット (10色巡回)
+# グラフ用カラーパレット (20色ユニークカラー)
 COLOR_PALETTE = [
-    "#8a2be2", # ブルーバイオレット
-    "#00ff7f", # スプリンググリーン
-    "#00bfff", # ディープスカイブルー
-    "#ff007f", # ネオンピンク
-    "#ffa500", # オレンジ
-    "#ffff00", # イエロー
-    "#00ffff", # シアン
-    "#ff4500", # オレンジレッド
-    "#da70d6", # オーキッド
-    "#32cd32", # ライムグリーン
+    "#8a2be2", # 1. パープル
+    "#00ff7f", # 2. ネオングリーン
+    "#00bfff", # 3. スカイブルー
+    "#ff007f", # 4. ディープピンク
+    "#ffa500", # 5. オレンジ
+    "#ffff00", # 6. イエロー
+    "#00ffff", # 7. シアン
+    "#ff4500", # 8. レッドオレンジ
+    "#da70d6", # 9. オーキッド
+    "#32cd32", # 10. ライム
+    "#ff69b4", # 11. ホットピンク
+    "#1e90ff", # 12. ドジャーブルー
+    "#adff2f", # 13. グリーンイエロー
+    "#ff1493", # 14. マゼンタ
+    "#00fa9a", # 15. ミディアムスプリンググリーン
+    "#ff8c00", # 16. ダークオレンジ
+    "#ba55d3", # 17. ミディアムオーキッド
+    "#00e5ff", # 18. ブライトシアン
+    "#ff3366", # 19. コーラルレッド
+    "#76ff03", # 20. ネオンライム
+]
+
+# 線のスタイルパターン (20色を超える場合や色が近い場合に実線・破線・点線で区別)
+DASH_PATTERNS = [
+    "none",        # 1〜20件目: 実線
+    "6 6",         # 21〜40件目: 破線
+    "2 4",         # 41〜60件目: 点線
+    "12 4 2 4",    # 61〜80件目: 一点鎖線
 ]
 
 @router.get("/comparison")
@@ -35,6 +53,7 @@ def get_channels_comparison(db: Session = Depends(get_db)):
 
     for idx, channel in enumerate(channels):
         color = COLOR_PALETTE[idx % len(COLOR_PALETTE)]
+        dash_pattern = DASH_PATTERNS[(idx // len(COLOR_PALETTE)) % len(DASH_PATTERNS)]
         
         # 該当チャンネルの履歴データを取得 (昇順)
         histories = (
@@ -51,6 +70,7 @@ def get_channels_comparison(db: Session = Depends(get_db)):
             "youtube_channel_id": channel.youtube_channel_id,
             "thumbnail_url": channel.thumbnail_url,
             "color": color,
+            "dash_pattern": dash_pattern,
             "has_history": has_history,
             "history_count": len(histories)
         })

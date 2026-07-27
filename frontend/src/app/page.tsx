@@ -5,9 +5,12 @@ import { fetchChannels, Channel, deleteChannel, updateChannelPin, updateChannels
 import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
 import AIAnalysisModal from './components/AIAnalysisModal';
+import GrowthComparisonView from './components/GrowthComparisonView';
+import { LayoutDashboard, LineChart as LineChartIcon } from 'lucide-react';
 import styles from './page.module.css';
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'comparison'>('dashboard');
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -166,53 +169,79 @@ export default function Home() {
             競合チャンネルの成長プロセスを追跡し、差別化のポジショニングを分析する
           </p>
         </div>
+
+        {/* タブナビゲーション */}
+        <div className={styles.tabNav}>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'dashboard' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <LayoutDashboard size={16} />
+            <span>ダッシュボード</span>
+          </button>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'comparison' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('comparison')}
+          >
+            <LineChartIcon size={16} />
+            <span>成長率比較分析</span>
+          </button>
+        </div>
       </header>
 
       <main className={styles.main}>
-        <section className={styles.registerSection}>
-          <ChannelRegisterForm onRegisterSuccess={handleRegisterSuccess} />
-        </section>
+        {activeTab === 'dashboard' ? (
+          <>
+            <section className={styles.registerSection}>
+              <ChannelRegisterForm onRegisterSuccess={handleRegisterSuccess} />
+            </section>
 
-        <section className={styles.dashboardSection}>
-          <h2 className={styles.sectionTitle}>追跡中の競合チャンネル</h2>
+            <section className={styles.dashboardSection}>
+              <h2 className={styles.sectionTitle}>追跡中の競合チャンネル</h2>
 
-          {isLoading ? (
-            <div className={styles.loadingArea}>
-              <span className={styles.spinner}></span>
-              <p>チャンネルデータを読み込み中...</p>
-            </div>
-          ) : error ? (
-            <div className={styles.errorArea}>
-              <p>{error}</p>
-              <button onClick={loadChannels} className={styles.retryButton}>
-                再試行
-              </button>
-            </div>
-          ) : channels.length === 0 ? (
-            <div className={styles.emptyArea}>
-              <p>現在追跡中のチャンネルはありません。</p>
-              <p className={styles.emptyTip}>
-                上のフォームから、競合チャンネルのID（UC...）またはハンドル名（@...）を登録してください。
-              </p>
-            </div>
-          ) : (
-            <div className={styles.grid}>
-              {channels.map((channel) => (
-                <ChannelCard 
-                  key={channel.id} 
-                  channel={channel} 
-                  onDelete={handleDeleteChannel}
-                  onPinToggle={handlePinToggle}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDragEnd={handleDragEnd}
-                  isDraggingNow={channel.id === draggedId}
-                  onShowAIAnalysis={handleShowAIAnalysis}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+              {isLoading ? (
+                <div className={styles.loadingArea}>
+                  <span className={styles.spinner}></span>
+                  <p>チャンネルデータを読み込み中...</p>
+                </div>
+              ) : error ? (
+                <div className={styles.errorArea}>
+                  <p>{error}</p>
+                  <button onClick={loadChannels} className={styles.retryButton}>
+                    再試行
+                  </button>
+                </div>
+              ) : channels.length === 0 ? (
+                <div className={styles.emptyArea}>
+                  <p>現在追跡中のチャンネルはありません。</p>
+                  <p className={styles.emptyTip}>
+                    上のフォームから、競合チャンネルのID（UC...）またはハンドル名（@...）を登録してください。
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.grid}>
+                  {channels.map((channel) => (
+                    <ChannelCard 
+                      key={channel.id} 
+                      channel={channel} 
+                      onDelete={handleDeleteChannel}
+                      onPinToggle={handlePinToggle}
+                      onDragStart={handleDragStart}
+                      onDragOver={handleDragOver}
+                      onDragEnd={handleDragEnd}
+                      isDraggingNow={channel.id === draggedId}
+                      onShowAIAnalysis={handleShowAIAnalysis}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <section className={styles.comparisonSection}>
+            <GrowthComparisonView />
+          </section>
+        )}
       </main>
 
       {/* 🤖 AI分析結果詳細モーダル */}

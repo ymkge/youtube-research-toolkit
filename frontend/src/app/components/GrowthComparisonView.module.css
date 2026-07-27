@@ -1,0 +1,283 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ローディング & エラー & 空状態 */
+.loadingContainer,
+.errorContainer,
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background-color: #161616;
+  border: 1px solid #262626;
+  border-radius: 16px;
+  text-align: center;
+  min-height: 350px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(138, 43, 226, 0.2);
+  border-top-color: #8a2be2;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.errorIcon {
+  color: #ff4d4d;
+  margin-bottom: 0.75rem;
+}
+
+.retryBtn {
+  margin-top: 1rem;
+  background-color: #262626;
+  color: #ffffff;
+  border: 1px solid #383838;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  transition: background-color 0.2s;
+}
+
+.retryBtn:hover {
+  background-color: #333333;
+}
+
+.emptyTip {
+  font-size: 0.8rem;
+  color: #888888;
+  margin-top: 0.5rem;
+}
+
+/* フィルターコントロールパネル */
+.controlPanel {
+  background-color: #181818;
+  border: 1px solid #282828;
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.controlHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.controlHeader h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iconTrend {
+  color: #00ff7f;
+}
+
+.btnGroup {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actionBtn {
+  background-color: #222222;
+  border: 1px solid #333333;
+  color: #cccccc;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.actionBtn:hover {
+  background-color: #2c2c2c;
+  color: #ffffff;
+}
+
+.filterGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filterChip {
+  background-color: #202020;
+  border: 1.5px solid #2c2c2c;
+  color: #888888;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.filterChip:hover:not(:disabled) {
+  background-color: #282828;
+  color: #ffffff;
+}
+
+.chipSelected {
+  background-color: #262626;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.chipDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.colorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chipTitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.disabledLabel {
+  font-size: 0.7rem;
+  color: #666666;
+}
+
+/* 2連並列グラフグリッド */
+.chartsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.chartCard {
+  background-color: #181818;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chartHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid #222222;
+  padding-bottom: 0.75rem;
+}
+
+.iconUsers {
+  color: #8a2be2;
+}
+
+.iconPlay {
+  color: #00bfff;
+}
+
+.chartHeader h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.chartBody {
+  width: 100%;
+}
+
+/* カスタムツールチップ */
+.customTooltip {
+  background-color: #1c1c1c;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  padding: 0.85rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+.tooltipDate {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #888888;
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 0.35rem;
+}
+
+.tooltipList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tooltipItem {
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tooltipName {
+  font-weight: 600;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltipGrowth {
+  font-weight: 700;
+}
+
+.tooltipRaw {
+  font-size: 0.75rem;
+  color: #aaaaaa;
+}

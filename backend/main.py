@@ -5,6 +5,8 @@ from sqlalchemy import inspect, text
 
 from app.db.session import engine, Base, SessionLocal
 from app.api.endpoints.channels import router as channels_router
+from app.api.endpoints.comparison import router as comparison_router
+
 # app.models を読み込ませることで、Base にモデルスキーマをバインドし、テーブルを自動生成する
 import app.models
 
@@ -117,6 +119,7 @@ app.add_middleware(
 
 # ルーターの登録
 app.include_router(channels_router, prefix="/api/channels", tags=["channels"])
+app.include_router(comparison_router, prefix="/api/channels", tags=["comparison"])
 
 @app.get("/")
 def read_root():

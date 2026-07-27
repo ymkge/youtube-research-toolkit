@@ -162,3 +162,38 @@ export async function fetchChannelAIAnalysis(channelId: number): Promise<AIAnaly
 
   return res.json();
 }
+
+/**
+ * 競合比較用インターフェース
+ */
+export interface ComparisonChannelItem {
+  id: number;
+  title: string;
+  youtube_channel_id: string;
+  thumbnail_url: string | null;
+  color: string;
+  has_history: boolean;
+  history_count: number;
+}
+
+export interface ComparisonTimelineEntry {
+  date: string;
+  [key: string]: any;
+}
+
+export interface ChannelsComparisonResponse {
+  channels: ComparisonChannelItem[];
+  timeline: ComparisonTimelineEntry[];
+}
+
+/**
+ * 全チャンネルの成長率比較タイムラインデータを取得します。
+ */
+export async function fetchChannelsComparison(): Promise<ChannelsComparisonResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/comparison`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || '成長率比較データの取得に失敗しました。');
+  }
+  return res.json();
+}

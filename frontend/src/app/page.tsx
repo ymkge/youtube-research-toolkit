@@ -69,20 +69,26 @@ export default function Home() {
     });
   }, [channels, sortBy, sortOrder]);
 
-  const handleShowAIAnalysis = async (channel: Channel) => {
+  const handleShowAIAnalysis = async (channel: Channel, forceReanalyze: boolean = false) => {
     setActiveAnalysisChannel(channel);
     setIsAILoading(true);
     setAiError(null);
     setAiAnalysis(null);
 
     try {
-      const data = await fetchChannelAIAnalysis(channel.id);
+      const data = await fetchChannelAIAnalysis(channel.id, forceReanalyze);
       setAiAnalysis(data);
     } catch (err: any) {
       setAiError(err.message || 'AI分析の生成に失敗しました。');
       console.error('AI分析のロードに失敗しました:', err);
     } finally {
       setIsAILoading(false);
+    }
+  };
+
+  const handleForceReanalyze = () => {
+    if (activeAnalysisChannel) {
+      handleShowAIAnalysis(activeAnalysisChannel, true);
     }
   };
 
@@ -353,6 +359,7 @@ export default function Home() {
         error={aiError}
         analysis={aiAnalysis}
         channelTitle={activeAnalysisChannel?.title || ''}
+        onReanalyze={handleForceReanalyze}
       />
     </div>
   );

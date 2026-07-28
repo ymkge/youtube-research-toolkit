@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { AIAnalysisResponse } from '../utils/api';
 import styles from './AIAnalysisModal.module.css';
-import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X } from 'lucide-react';
+import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw } from 'lucide-react';
 
 interface AIAnalysisModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface AIAnalysisModalProps {
   error: string | null;
   analysis: AIAnalysisResponse | null;
   channelTitle: string;
+  onReanalyze?: () => void;
 }
 
 export default function AIAnalysisModal({
@@ -19,6 +20,7 @@ export default function AIAnalysisModal({
   error,
   analysis,
   channelTitle,
+  onReanalyze,
 }: AIAnalysisModalProps) {
   // モーダルが開いている間、背景のスクロールをロックする
   useEffect(() => {
@@ -149,9 +151,22 @@ export default function AIAnalysisModal({
                 </ul>
               </div>
 
-              {/* レポート生成日時 */}
+              {/* レポート生成日時 & 再分析ボタン */}
               <div className={styles.footer}>
-                分析日時: {new Date(analysis.generated_at).toLocaleString('ja-JP')}
+                <span className={styles.generatedAt}>
+                  分析日時: {new Date(analysis.generated_at).toLocaleString('ja-JP')}
+                </span>
+                {onReanalyze && (
+                  <button
+                    onClick={onReanalyze}
+                    className={styles.reanalyzeBtn}
+                    title="最新のドメインナレッジ (domain_knowledge.txt) を読み込み強制再分析します"
+                    disabled={isLoading}
+                  >
+                    <RefreshCw size={13} className={isLoading ? styles.spinning : ''} />
+                    <span>最新ノウハウで再分析</span>
+                  </button>
+                )}
               </div>
             </div>
           )}

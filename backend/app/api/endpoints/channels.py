@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.channel import Channel
@@ -267,9 +267,10 @@ def get_channel_history(channel_id: int, db: Session = Depends(get_db)):
     return history
 
 @router.post("/{channel_id}/analyze", response_model=AIAnalysisResponse)
-def analyze_channel(channel_id: int, db: Session = Depends(get_db)):
+def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = Depends(get_db)):
     """
     指定されたチャンネルのAIポジショニング分析レポートを生成、またはキャッシュから返却します。
+    force=True の場合はキャッシュを無視して最新のドメインナレッジで強制再分析を行います。
     """
     # 1. チャンネルの存在チェック
     db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
@@ -290,9 +291,8 @@ def analyze_channel(channel_id: int, db: Session = Depends(get_db)):
             detail="分析に必要な動画データがありません。先にチャンネル動画を同期してください。"
         )
 
-    # 3. インテリジェントキャッシュの判定
-    # キャッシュデータが存在し、かつ前回の生成時刻が動画の最終同期時刻よりも新しい場合
-    if db_channel.ai_analysis and db_channel.ai_analysis_generated_at:
+    # 3. インテリジェントキャッシュの判定 (force=False の場合のみ試行)
+    if not force and db_channel.ai_analysis and db_channel.ai_analysis_generated_at:
         video_sync_time = db_channel.updated_at
         analysis_gen_time = db_channel.ai_analysis_generated_at
         

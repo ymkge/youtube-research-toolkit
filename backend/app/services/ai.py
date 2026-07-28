@@ -1,9 +1,24 @@
 import json
 import datetime
+import os
 from google import genai
 from google.genai import types
 from app.core.config import settings
 from app.schemas.ai_analysis import AIAnalysisResponse
+
+def load_domain_knowledge() -> str:
+    """
+    app/data/domain_knowledge.txt から専門ドメイン知識を安全に読み込みます。
+    ファイルが存在しない場合は空文字を返します。
+    """
+    file_path = os.path.join(os.path.dirname(__file__), "..", "data", "domain_knowledge.txt")
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except Exception:
+            return ""
+    return ""
 
 class AIService:
     def is_configured(self) -> bool:
@@ -62,15 +77,31 @@ class AIService:
 
         prompt_input = "\n".join(context_parts)
 
+        # ドメインナレッジの読み込みと注入
+        domain_knowledge = load_domain_knowledge()
+        knowledge_section = ""
+        if domain_knowledge:
+            knowledge_section = f"""
+=== [Domain Knowledge & Strategic Constraints (最優先考慮すべき専門知識)] ===
+以下のドメイン知識および注意点・リスク考察を【絶対的な前提知識】として分析を行ってください。
+画一的なショート動画（Shorts）作成の安易な推奨は避け、BGM・作業用コンテンツとしての滞在時間（Watch Time / Retention Rate）や継続再生価値を守るための戦略アドバイスを提示してください。
+
+{domain_knowledge}
+==============================================================
+"""
+
         # 2. プロンプト（分析指示）の構築
         prompt = f"""
 あなたはYouTube競合分析およびマーケティングのプロフェッショナルです。
-以下の「チャンネル情報」および「最新100件の動画パフォーマンス」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
+以下の「チャンネル情報」、「最新100件の動画パフォーマンス」、および「最優先考慮すべき専門知識」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
+
+{knowledge_section}
 
 【分析の指示】
 1. 競合独自の「強み（差別化要素）」および「弱み（カバーしきれていない領域）」を抽出してください。
 2. 動画一覧の「再生数（平均に対する倍率）」や「動画の長さ（ロング・ショート）」、「高評価数」を比較し、特に高パフォーマンスを発揮している「主要なヒットテーマ」を最大3つ特定してください。
 3. 自チャンネルがこの競合に対して、どのようなポジショニングを狙うべきか、具体的な差別化戦略のアドバイスを提示してください。
+4. ドメイン知識で指定されたリスク（Shortsによる滞在時間低下等）を踏まえ、短期的ではなく長期的・本質的な成長施策を中心に提案してください。
 
 【文字数・件数制限の厳守】
 Pydanticのレスポンススキーマ（response_schema）で定義されている文字数制限を**厳格に守ってください**。

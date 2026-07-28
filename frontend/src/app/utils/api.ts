@@ -149,9 +149,16 @@ export async function fetchChannelHistory(channelId: number): Promise<ChannelSta
 
 /**
  * チャンネルのAIポジショニング分析レポートを取得（生成）します。
+ * forceReanalyze が true の場合はキャッシュを無視して最新のドメインナレッジで強制再分析を行います。
  */
-export async function fetchChannelAIAnalysis(channelId: number): Promise<AIAnalysisResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/analyze`, {
+export async function fetchChannelAIAnalysis(
+  channelId: number,
+  forceReanalyze: boolean = false
+): Promise<AIAnalysisResponse> {
+  const url = `${API_BASE_URL}/api/channels/${channelId}/analyze${
+    forceReanalyze ? '?force=true' : ''
+  }`;
+  const res = await fetch(url, {
     method: 'POST',
   });
 

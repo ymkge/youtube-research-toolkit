@@ -398,8 +398,53 @@
 
 /* フッター */
 .footer {
-  align-self: flex-end;
-  font-size: 0.7rem;
-  color: #555555;
-  margin-top: 0.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: 0.75rem;
+  color: #777777;
+  border-top: 1px solid #222222;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.generatedAt {
+  color: #666666;
+}
+
+.reanalyzeBtn {
+  background-color: #1a1a24;
+  border: 1px solid #8a2be2;
+  color: #00ff7f;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.15);
+}
+
+.reanalyzeBtn:hover:not(:disabled) {
+  background-color: #8a2be2;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(138, 43, 226, 0.4);
+}
+
+.reanalyzeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

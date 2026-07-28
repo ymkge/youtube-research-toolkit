@@ -6,8 +6,11 @@ import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
 import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
-import { LayoutDashboard, LineChart as LineChartIcon } from 'lucide-react';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import styles from './page.module.css';
+
+type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
+type SortOrder = 'desc' | 'asc';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'comparison'>('dashboard');
@@ -16,11 +19,55 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<number | null>(null);
 
+  // ソート用ステート
+  const [sortBy, setSortBy] = useState<SortKey>('custom');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
   // AI分析表示モーダル用のステート
   const [activeAnalysisChannel, setActiveAnalysisChannel] = useState<Channel | null>(null);
   const [isAILoading, setIsAILoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // ソート条件に基づいてチャンネル配列を動的に並び替え
+  const sortedChannels = React.useMemo(() => {
+    return [...channels].sort((a, b) => {
+      // 1. ピン留め優先制御 (ピン留めされているものが常に上)
+      if (a.is_pinned !== b.is_pinned) {
+        return a.is_pinned ? -1 : 1;
+      }
+
+      // 2. カスタム順 (標準ドラッグ順) の場合
+      if (sortBy === 'custom') {
+        return a.sort_order - b.sort_order;
+      }
+
+      // 3. 各指標の数値比較
+      let valA = 0;
+      let valB = 0;
+
+      switch (sortBy) {
+        case 'subscribers':
+          valA = a.subscriber_count || 0;
+          valB = b.subscriber_count || 0;
+          break;
+        case 'views':
+          valA = a.view_count || 0;
+          valB = b.view_count || 0;
+          break;
+        case 'videos':
+          valA = a.video_count || 0;
+          valB = b.video_count || 0;
+          break;
+        case 'avg_views':
+          valA = a.average_views_per_video || 0;
+          valB = b.average_views_per_video || 0;
+          break;
+      }
+
+      return sortOrder === 'desc' ? valB - valA : valA - valB;
+    });
+  }, [channels, sortBy, sortOrder]);
 
   const handleShowAIAnalysis = async (channel: Channel) => {
     setActiveAnalysisChannel(channel);
@@ -144,6 +191,7 @@ export default function Home() {
   const handleDragEnd = async () => {
     if (draggedId === null) return;
     setDraggedId(null);
+    setSortBy('custom'); // ドラッグ＆ドロップ完了時はカスタム順に復帰
 
     // 最終的な表示順を抽出して一括保存
     const ids = channels.map((c) => c.id);
@@ -201,11 +249,54 @@ export default function Home() {
 
             <section className={styles.dashboardSection}>
               <div className={styles.sectionHeader}>
-                <h2 className={styles.sectionTitle}>追跡中の競合チャンネル</h2>
-                {!isLoading && (
-                  <span className={styles.countBadge}>
-                    登録中: <strong>{channels.length}</strong> 件
-                  </span>
+                <div className={styles.titleInfo}>
+                  <h2 className={styles.sectionTitle}>追跡中の競合チャンネル</h2>
+                  {!isLoading && (
+                    <span className={styles.countBadge}>
+                      登録中: <strong>{channels.length}</strong> 件
+                    </span>
+                  )}
+                </div>
+
+                {/* ソートコントロール */}
+                {!isLoading && channels.length > 0 && (
+                  <div className={styles.sortControlGroup}>
+                    <div className={styles.sortSelectWrapper}>
+                      <ArrowUpDown size={14} className={styles.sortIcon} />
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as SortKey)}
+                        className={styles.sortSelect}
+                        title="並び替え基準を選択"
+                      >
+                        <option value="custom">カスタム順 (手動ドラッグ順)</option>
+                        <option value="subscribers">登録者数順</option>
+                        <option value="views">総再生数順</option>
+                        <option value="videos">動画数順</option>
+                        <option value="avg_views">平均再生数順</option>
+                      </select>
+                    </div>
+
+                    {sortBy !== 'custom' && (
+                      <button
+                        onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                        className={styles.sortOrderBtn}
+                        title={sortOrder === 'desc' ? '多い順 (降順) -> 少ない順に切替' : '少ない順 (昇順) -> 多い順に切替'}
+                      >
+                        {sortOrder === 'desc' ? (
+                          <>
+                            <ArrowDown size={14} />
+                            <span>多い順</span>
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUp size={14} />
+                            <span>少ない順</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -230,7 +321,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className={styles.grid}>
-                  {channels.map((channel) => (
+                  {sortedChannels.map((channel) => (
                     <ChannelCard 
                       key={channel.id} 
                       channel={channel} 

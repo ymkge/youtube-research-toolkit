@@ -122,14 +122,24 @@ export default function ChannelCard({
 
 
 
+  // 登録者数に応じたランククラスを取得する関数
+  const getCardRankClass = (subscriberCount: number): string => {
+    if (subscriberCount >= 100000) return styles.cardDiamond;
+    if (subscriberCount >= 10000) return styles.cardGold;
+    if (subscriberCount >= 1000) return styles.cardSilver;
+    return styles.cardBronze;
+  };
+
   // YouTube チャンネルへのリンクURLを構築
   const channelUrl = channel.custom_url
     ? `https://www.youtube.com/${channel.custom_url}`
     : `https://www.youtube.com/channel/${channel.youtube_channel_id}`;
 
+  const rankClass = getCardRankClass(channel.subscriber_count || 0);
+
   return (
     <div 
-      className={`${styles.card} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart ? styles.expanded : ''}`}
+      className={`${styles.card} ${rankClass} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart ? styles.expanded : ''}`}
       onMouseLeave={() => setIsMenuOpen(false)}
     >
       <div className={styles.actionButtons}>

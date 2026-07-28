@@ -17,6 +17,60 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
+/* 💎 Diamond Rank (100,000人〜): ディープサイバーパープル〜プラチナシアン */
+.cardDiamond {
+  background: linear-gradient(135deg, #151224 0%, #1a1630 60%, #0d233a 100%);
+  border: 1px solid rgba(0, 255, 255, 0.35);
+  box-shadow: 0 4px 15px rgba(0, 255, 255, 0.08), inset 0 0 20px rgba(138, 43, 226, 0.05);
+}
+
+.cardDiamond::before {
+  background: linear-gradient(90deg, #00ffff, #8a2be2, #00ff7f);
+}
+
+.cardDiamond:hover {
+  border-color: rgba(0, 255, 255, 0.7) !important;
+  box-shadow: 0 10px 35px rgba(0, 255, 255, 0.25), 0 0 20px rgba(138, 43, 226, 0.3) !important;
+}
+
+/* 🥇 Gold Rank (10,000人〜): ダークゴールド ✕ 琥珀 */
+.cardGold {
+  background: linear-gradient(135deg, #221c10 0%, #2a2012 60%, #1e1708 100%);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.08), inset 0 0 20px rgba(255, 140, 0, 0.05);
+}
+
+.cardGold::before {
+  background: linear-gradient(90deg, #ffd700, #ff8c00, #ffaa00);
+}
+
+.cardGold:hover {
+  border-color: rgba(255, 215, 0, 0.7) !important;
+  box-shadow: 0 10px 35px rgba(255, 215, 0, 0.25), 0 0 20px rgba(255, 140, 0, 0.25) !important;
+}
+
+/* 🥈 Silver Rank (1,000人〜): クールシルバー ✕ エメラルド */
+.cardSilver {
+  background: linear-gradient(135deg, #161c1a 0%, #1c2422 60%, #121a18 100%);
+  border: 1px solid rgba(192, 192, 192, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 255, 127, 0.05);
+}
+
+.cardSilver::before {
+  background: linear-gradient(90deg, #c0c0c0, #00ff7f, #e0e0e0);
+}
+
+.cardSilver:hover {
+  border-color: rgba(0, 255, 127, 0.6) !important;
+  box-shadow: 0 10px 35px rgba(0, 255, 127, 0.2), 0 0 15px rgba(192, 192, 192, 0.2) !important;
+}
+
+/* 🥉 Bronze Rank (< 1,000人): チャコール */
+.cardBronze {
+  background-color: #181818;
+  border: 1px solid #2a2a2a;
+}
+
 .expanded {
   height: auto !important; /* トレンド/AI展開時はコンテンツに合わせる */
   min-height: 545px; /* 最小高さを確保 */

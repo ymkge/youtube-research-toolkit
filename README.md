@@ -2,16 +2,57 @@
 
 YouTubeの競合チャンネル分析・追跡、およびAIを用いた差別化（ポジショニング）要素の抽出を行うためのフルスタックWebアプリケーションです。
 
+---
+
 ## 概要
 
-新しくYouTubeチャンネルを立ち上げる際、あるいは既存チャンネルを成長させる際、競合チャンネル（「vidIQ」や「kamui tracker」などを想定）が「どのように成長してきたか」を追跡・分析します。
-また、収集したデータを元に、AI（Gemini API）を活用して「競合がまだカバーしていないテーマ」や「独自のポジショニング」を分析・導き出します。
+新しくYouTubeチャンネルを立ち上げる際、あるいは既存チャンネルを成長させる際、競合チャンネルが「どのように成長してきたか」を定量・定性的に追跡・分析します。
+収集したデータを元に、AI（Gemini API）を活用して「競合がまだカバーしていないテーマ」や「独自のポジショニング」を分析・導き出すほか、ドメインナレッジ（RAG）を用いた高度なリスク分析を提供します。
+
+---
+
+## ✨ 主な機能
+
+### 📊 ダッシュボード (メイン画面)
+* **登録者数規模に応じたランク別グラデーションカード**:
+  * 💎 **Diamond** (10万人〜): ディープサイバーパープル ✕ プラチナシアン
+  * 🥇 **Gold** (1万人〜): 金箔調ダークゴールド ✕ 琥珀 (Amber)
+  * 🥈 **Silver** (1,000人〜): クールシルバー ✕ エメラルド
+  * 🥉 **Bronze** (< 1,000人): チャコールダークモード
+* **🔥 前日比急成長 注目フラグ (#36)**:
+  * 前日比で登録者数が **+100名以上** 急増している勢いのあるチャンネルに、脈動発光バッジ（`🔥 前日比 +XXX名`）を自動表示。
+* **🔃 インタラクティブな多角ソート機能 (#34)**:
+  * 「カスタム順 (手動ドラッグ順)」「登録者数順」「総再生数順」「動画数順」「平均再生数順」の各指標でリアルタイム整列。
+  * 降順選択時は、最も数値の高いチャンネルが **「左上 ➔ 中央 ➔ 右上 ➔ 2段目左端...」** の直感的な優先配置順で整列。
+  * **ピン留め優先制御**: ピン留めチャンネルは常に最上部エリアに維持。
+
+### 📈 成長率比較分析画面 (#28, #35)
+* **累積成長率 (%) 比較 2連並列グラフ**:
+  * 各チャンネルの追跡開始日（最古データ）を `0.0%` の基準点とした累積成長率 (%) を算出・可視化（上段: 登録者数 / 下段: 総再生数）。
+* **🎨 視認性大幅向上策 (20チャンネル以上対応)**:
+  * 20色のユニークカラーパレット ＋ 「実線 (`━`)」「破線 (`╌`)」などの線種パターンの自動組み合わせ。
+  * 凡例バッジにマウスを乗せると、対象の線だけが太く (`strokeWidth=4.5`) 輝き、他の線が半透明化するリアルタイムハイライト強調。
+* **📌 スクロール追従型 (Sticky) 左サイドバー**:
+  * 画面を下にスクロールして下段グラフを閲覧中も、左側の比較フィルターパネルが画面上部に固定追従。
+* **⚡ 規模別一括閾値フィルター (#35)**:
+  * `💎 10万+` `🥇 1万+` `🥈 1千+` `📌 ピン留め` のワンタップ一括選択ボタン。
+  * 「登録者数 [ `数値` ] 人以上」の自由指定カスタム入力フォーム。
+
+### 🤖 ドメイン知識注入型 AIポジショニング分析 (RAG拡張)
+* **Gemini API 構造化出力 (Structured Outputs)**:
+  * 競合の「強み」「弱み」「ヒットテーマ」「差別化・ポジショニング戦略アドバイス」を精密に抽出・レポート出力。
+* **🧠 外部ドメインナレッジファイル (`backend/app/data/domain_knowledge.txt`) によるRAG拡張**:
+  * 画一的な「Shorts動画を作りましょう」といった提案を控え、BGM/作業用コンテンツ特有の「連続視聴維持時間（Retention Rate）の重要性」や「Shorts流入によるアルゴリズム評価悪化リスク」を前提知識としてプロンプトに注入。
+* **🔄 「最新ノウハウで再分析」機能**:
+  * モーダル内から `domain_knowledge.txt` の最新知見を読み込んで一発強制再分析（キャッシュ上書き）を実行可能。
+
+---
 
 ## 技術スタック
 
-* **フロントエンド**: Next.js 14 (App Router) + TypeScript + Recharts (データ可視化) + Vanilla CSS (CSS Modules)
-* **バックエンド**: FastAPI (Python 3.11+) + SQLAlchemy + SQLite (ローカル軽量データベース)
-* **AI・外部API**: YouTube Data API v3, Gemini API
+* **フロントエンド**: Next.js 14 (App Router) + TypeScript + Recharts (データ可視化) + Lucide React + Vanilla CSS (CSS Modules)
+* **バックエンド**: FastAPI (Python 3.12) + SQLAlchemy + SQLite (ローカルデータベース)
+* **AI・外部API**: YouTube Data API v3, Gemini API (`google-genai` SDK / Structured Outputs)
 * **自動収集バッチ**: GitHub Actions (日次自動フェッチ) + CLI python バッチ
 
 ---
@@ -25,19 +66,19 @@ youtube-research-toolkit/
 │       └── fetch_stats.yml   # 日次統計データ自動収集バッチ定義
 ├── backend/                  # FastAPI バックエンド
 │   ├── app/                  # アプリケーションロジック
+│   │   ├── api/endpoints/    # APIルート (channels.py, comparison.py)
+│   │   ├── data/             # ナレッジファイル (domain_knowledge.txt) & 時系列JSON
 │   │   ├── models/           # DBモデル (channel, video, channel_stats_history)
 │   │   ├── schemas/          # Pydantic スキーマ
-│   │   ├── scripts/          # CLI実行スクリプト (fetch_stats.py)
-│   │   └── services/         # YouTube API 連携等の共通サービス
-│   ├── data/                 # 蓄積データ
-│   │   └── history/          # GitHub Actionsから自動同期される時系列JSON
-│   ├── main.py               # API エントリーポイント (起動時に自動データ同期実行)
+│   │   └── services/         # YouTube API & Gemini API 連携サービス
+│   ├── main.py               # API エントリーポイント
 │   └── requirements.txt      # 依存ライブラリ一覧
 ├── frontend/                 # Next.js フロントエンド
-│   ├── src/                  # ソースコード
-│   ├── package.json          # 依存パッケージ一覧
-│   ├── tsconfig.json         # TypeScript 設定
-│   └── next.config.js        # Next.js 設定
+│   ├── src/app/
+│   │   ├── components/       # UIコンポーネント (ChannelCard, GrowthComparisonView, AIAnalysisModal)
+│   │   ├── utils/            # API通信関数 (api.ts)
+│   │   └── page.tsx          # メインページ (タブ切替・ソートコントロール)
+│   └── package.json          # 依存パッケージ一覧
 └── README.md                 # 本ドキュメント
 ```
 
@@ -46,8 +87,7 @@ youtube-research-toolkit/
 ## セットアップ方法
 
 ### 必要な環境変数
-プロジェクトの実行には、以下のAPIキーが必要です。
-それぞれのディレクトリ、またはルート直下に `.env` ファイルを作成し、設定してください（※ `.gitignore` でGit管理からは除外されています）。
+`backend/.env` ファイルを作成し、以下のキーを設定してください。
 
 ```env
 # YouTube Data API キー
@@ -59,40 +99,22 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 ### 1. バックエンド (FastAPI) の起動
 
-`backend/` ディレクトリで以下の手順を実行します。
-
 ```bash
 cd backend
-
-# 仮想環境の作成 (初回のみ)
-python -m venv venv
 source venv/bin/activate  # macOS/Linux
-# venv\Scripts\activate  # Windows
-
-# 依存パッケージのインストール
 pip install -r requirements.txt
-
-# 開発サーバーの起動
 uvicorn main:app --reload
 ```
-
-起動後、 [http://localhost:8000/docs](http://localhost:8000/docs) で API Swagger UI にアクセスできます。
+[http://localhost:8000/docs](http://localhost:8000/docs) で API Swagger UI にアクセスできます。
 
 ### 2. フロントエンド (Next.js) の起動
 
-`frontend/` ディレクトリで以下の手順を実行します。
-
 ```bash
 cd frontend
-
-# 依存パッケージのインストール
 npm install
-
-# 開発サーバーの起動
 npm run dev
 ```
-
-起動後、 [http://localhost:3000](http://localhost:3000) でダッシュボード画面にアクセスできます。
+[http://localhost:3000](http://localhost:3000) でダッシュボード画面にアクセスできます。
 
 ---
 
@@ -100,14 +122,5 @@ npm run dev
 
 PCが起動していなくても、毎日自動的に競合チャンネルの数値（登録者、再生数、動画数）を収集・蓄積する仕組みを搭載しています。
 
-### 1. GitHub Actions の設定方法
-本リポジトリを GitHub にアップロード（プッシュ）した後、リポジトリの **Settings ➔ Secrets and variables ➔ Actions** にて以下の2つの **Repository secrets** を追加します。
-
-* **`YOUTUBE_API_KEY`**: 取得した YouTube Data API キー
-* **`MONITOR_CHANNELS`**: 監視したい YouTube のチャンネルID（`UC` から始まる24文字）を、カンマ（`,`）で区切った文字列
-  * *設定例*: `UCD-R2Y7wTvYMWIcBmob6a2A,UC-OzfxW-OXMuuNggpxNuTLw`
-
-### 2. データの自動マージ（同期）
-GitHub Actions は毎日日本時間の午前3時に自動で起動し、取得した数値を軽量なテキストの JSON ファイルとして `backend/data/history/` ディレクトリにプッシュします。
-
-利用者がローカルPCで **FastAPI バックエンドを起動する（または再起動する）と、起動時イベントにより自動的に JSON データが SQLite 内の履歴テーブル（`channel_stats_history`）へ一括マージ（インポート）されます**。これにより、GitのバイナリDBファイルの衝突（競合）を一切起こすことなく、常に最新の時系列成長トレンドを同期することができます。
+* **`YOUTUBE_API_KEY`**: YouTube Data API キー
+* **`MONITOR_CHANNELS`**: 監視したい YouTube チャンネルIDをカンマ区切りで指定（全24チャンネル設定対応）。

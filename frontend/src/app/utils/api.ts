@@ -175,6 +175,8 @@ export interface ComparisonChannelItem {
   dash_pattern: string;
   has_history: boolean;
   history_count: number;
+  subscriber_count?: number;
+  is_pinned?: boolean;
 }
 
 export interface ComparisonTimelineEntry {

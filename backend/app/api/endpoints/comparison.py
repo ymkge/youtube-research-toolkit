@@ -72,7 +72,9 @@ def get_channels_comparison(db: Session = Depends(get_db)):
             "color": color,
             "dash_pattern": dash_pattern,
             "has_history": has_history,
-            "history_count": len(histories)
+            "history_count": len(histories),
+            "subscriber_count": channel.subscriber_count or 0,
+            "is_pinned": channel.is_pinned,
         })
 
         if not has_history:

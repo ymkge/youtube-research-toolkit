@@ -175,6 +175,108 @@
   color: #ffffff;
 }
 
+.quickFilterSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #242424;
+  padding-top: 0.65rem;
+}
+
+.filterSectionLabel {
+  font-size: 0.72rem;
+  color: #888888;
+  font-weight: 600;
+}
+
+.quickFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.35rem;
+}
+
+.quickFilterBtn {
+  background-color: #1e1e24;
+  border: 1px solid #2e2e38;
+  color: #d0d0d0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.quickFilterBtn:hover {
+  background-color: #2a2a36;
+  border-color: #8a2be2;
+  color: #ffffff;
+}
+
+.customFilterForm {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.5rem 0;
+  border-bottom: 1px solid #242424;
+  padding-bottom: 0.75rem;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.filterInputIcon {
+  position: absolute;
+  left: 8px;
+  color: #777777;
+}
+
+.customInput {
+  width: 100%;
+  background-color: #141414;
+  border: 1px solid #282828;
+  border-radius: 6px;
+  padding: 5px 45px 5px 26px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.customInput:focus {
+  border-color: #8a2be2;
+}
+
+.inputUnit {
+  position: absolute;
+  right: 8px;
+  font-size: 0.7rem;
+  color: #777777;
+  pointer-events: none;
+}
+
+.applyBtn {
+  background-color: #8a2be2;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.applyBtn:hover {
+  background-color: #9d3bf0;
+}
+
 .filterGrid {
   display: flex;
   flex-wrap: wrap;

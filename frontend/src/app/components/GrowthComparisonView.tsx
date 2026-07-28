@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, Users, Play, CheckSquare, Square, RefreshCw, AlertCircle } from 'lucide-react';
+import { TrendingUp, Users, Play, CheckSquare, Square, RefreshCw, AlertCircle, Filter } from 'lucide-react';
 
 // 数値を読みやすい単位（万、億）にフォーマット
 function formatNumber(num: number): string {
@@ -31,6 +31,8 @@ export default function GrowthComparisonView() {
   const [selectedChannelIds, setSelectedChannelIds] = useState<number[]>([]);
   // ホバー（強調表示）中のチャンネルID
   const [hoveredChannelId, setHoveredChannelId] = useState<number | null>(null);
+  // 自由入力カスタム登録者数フィルター
+  const [customMinSubs, setCustomMinSubs] = useState<string>('');
 
   const loadData = async () => {
     setIsLoading(true);
@@ -66,6 +68,46 @@ export default function GrowthComparisonView() {
 
   const deselectAll = () => {
     setSelectedChannelIds([]);
+  };
+
+  // ランク別およびピン留めのワンタップ一括選択ハンドラー
+  const selectByFilter = (filterType: '100k' | '10k' | '1k' | 'pinned') => {
+    if (!data) return;
+    const matchedIds = data.channels
+      .filter((c) => c.has_history)
+      .filter((c) => {
+        const subs = c.subscriber_count || 0;
+        switch (filterType) {
+          case '100k':
+            return subs >= 100000;
+          case '10k':
+            return subs >= 10000;
+          case '1k':
+            return subs >= 1000;
+          case 'pinned':
+            return !!c.is_pinned;
+          default:
+            return true;
+        }
+      })
+      .map((c) => c.id);
+
+    setSelectedChannelIds(matchedIds);
+  };
+
+  // 自由数値入力の適用ハンドラー
+  const applyCustomMinSubsFilter = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data) return;
+    const minVal = parseInt(customMinSubs, 10);
+    if (isNaN(minVal) || minVal < 0) return;
+
+    const matchedIds = data.channels
+      .filter((c) => c.has_history)
+      .filter((c) => (c.subscriber_count || 0) >= minVal)
+      .map((c) => c.id);
+
+    setSelectedChannelIds(matchedIds);
   };
 
   if (isLoading) {
@@ -181,6 +223,44 @@ export default function GrowthComparisonView() {
                 </button>
               </div>
             </div>
+
+            {/* 💎 規模別ワンタップ一括フィルター */}
+            <div className={styles.quickFilterSection}>
+              <span className={styles.filterSectionLabel}>規模別一括選択:</span>
+              <div className={styles.quickFilterGrid}>
+                <button onClick={() => selectByFilter('100k')} className={styles.quickFilterBtn} title="登録者10万人以上のチャンネルを全選択">
+                  💎 10万+
+                </button>
+                <button onClick={() => selectByFilter('10k')} className={styles.quickFilterBtn} title="登録者1万人以上のチャンネルを全選択">
+                  🥇 1万+
+                </button>
+                <button onClick={() => selectByFilter('1k')} className={styles.quickFilterBtn} title="登録者1,000人以上のチャンネルを全選択">
+                  🥈 1千+
+                </button>
+                <button onClick={() => selectByFilter('pinned')} className={styles.quickFilterBtn} title="ピン留めされているチャンネルを全選択">
+                  📌 ピン留め
+                </button>
+              </div>
+            </div>
+
+            {/* 自由数値入力カスタムフィルター */}
+            <form onSubmit={applyCustomMinSubsFilter} className={styles.customFilterForm}>
+              <div className={styles.inputWrapper}>
+                <Filter size={13} className={styles.filterInputIcon} />
+                <input
+                  type="number"
+                  placeholder="登録者数 (例: 5000)"
+                  value={customMinSubs}
+                  onChange={(e) => setCustomMinSubs(e.target.value)}
+                  className={styles.customInput}
+                  min="0"
+                />
+                <span className={styles.inputUnit}>人以上</span>
+              </div>
+              <button type="submit" className={styles.applyBtn}>
+                適用
+              </button>
+            </form>
 
             {/* チャンネル選択バッジ一覧 */}
             <div className={styles.filterGrid}>

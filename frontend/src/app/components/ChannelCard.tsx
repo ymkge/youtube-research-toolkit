@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Channel, fetchChannelHistory, ChannelStatsHistory } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -230,6 +230,13 @@ export default function ChannelCard({
               </span>
             )}
           </div>
+
+          {channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100 && (
+            <div className={styles.hotBadge} title="前日比で登録者数が100名以上急増中！">
+              <Flame size={12} className={styles.hotIcon} />
+              <span>前日比 +{channel.daily_sub_growth.toLocaleString()}名</span>
+            </div>
+          )}
           <div className={styles.metaRow}>
             {channel.custom_url && (
               <span className={styles.customUrl}>{channel.custom_url}</span>

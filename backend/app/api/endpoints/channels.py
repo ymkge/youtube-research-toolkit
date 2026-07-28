@@ -161,12 +161,42 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
 def get_all_channels(db: Session = Depends(get_db)):
     # ピン留め最優先、その後 sort_order 順
     channels = db.query(Channel).order_by(Channel.is_pinned.desc(), Channel.sort_order.asc()).all()
+    if not channels:
+        return []
+
+    channel_ids = [c.id for c in channels]
+
+    # たった1回のSQLクエリで全チャンネルの時系列履歴を降順取得 (N+1問題の排除)
+    all_histories = (
+        db.query(ChannelStatsHistory)
+        .filter(ChannelStatsHistory.channel_id.in_(channel_ids))
+        .order_by(ChannelStatsHistory.channel_id.asc(), ChannelStatsHistory.recorded_at.desc())
+        .all()
+    )
+
+    # チャンネルIDごとに履歴をグループ化
+    history_map = {}
+    for h in all_histories:
+        if h.channel_id not in history_map:
+            history_map[h.channel_id] = []
+        history_map[h.channel_id].append(h)
+
     for c in channels:
         avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, c.id)
         c.average_video_duration = avg_duration
         c.average_views_per_video = avg_views
         c.average_upload_frequency = avg_freq
         c.latest_video_published_at = latest_upload
+
+        # 前日比登録者増加数の計算 (直近2件の差分)
+        ch_histories = history_map.get(c.id, [])
+        if len(ch_histories) >= 2:
+            latest_sub = ch_histories[0].subscriber_count or 0
+            prev_sub = ch_histories[1].subscriber_count or 0
+            c.daily_sub_growth = latest_sub - prev_sub
+        else:
+            c.daily_sub_growth = 0
+
     return channels
 
 @router.delete("/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)

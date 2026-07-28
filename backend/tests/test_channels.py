@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from app.models.channel import Channel
 from app.models.video import Video
 from app.models.channel_stats_history import ChannelStatsHistory
@@ -84,6 +84,12 @@ def test_get_all_channels(client, db):
     db.add_all([c1, c2])
     db.commit()
 
+    # c1 (Channel A) に2件の時系列履歴を追加 (最新: 250, 1日前: 100 ➔ 差分 +150)
+    h1 = ChannelStatsHistory(channel_id=c1.id, subscriber_count=100, recorded_at=datetime.utcnow() - timedelta(days=1))
+    h2 = ChannelStatsHistory(channel_id=c1.id, subscriber_count=250, recorded_at=datetime.utcnow())
+    db.add_all([h1, h2])
+    db.commit()
+
     response = client.get("/api/channels/")
     assert response.status_code == 200
     
@@ -93,6 +99,7 @@ def test_get_all_channels(client, db):
     # ピン留め最優先、その後表示順でソートされているか検証
     assert data[0]["title"] == "Channel B"  # is_pinned=True が先頭
     assert data[1]["title"] == "Channel A"
+    assert data[1]["daily_sub_growth"] == 150
 
 def test_delete_channel(client, db):
     """

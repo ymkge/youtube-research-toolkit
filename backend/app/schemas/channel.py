@@ -24,6 +24,7 @@ class ChannelResponse(BaseModel):
     sort_order: int
     is_pinned: bool
     latest_video_published_at: Optional[datetime] = None
+    daily_sub_growth: int = 0
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

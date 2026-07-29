@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AIAnalysisResponse } from '../utils/api';
 import styles from './AIAnalysisModal.module.css';
-import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw } from 'lucide-react';
+import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image } from 'lucide-react';
 
 interface AIAnalysisModalProps {
   isOpen: boolean;
@@ -22,6 +22,8 @@ export default function AIAnalysisModal({
   channelTitle,
   onReanalyze,
 }: AIAnalysisModalProps) {
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
   // モーダルが開いている間、背景のスクロールをロックする
   useEffect(() => {
     if (isOpen) {
@@ -36,6 +38,74 @@ export default function AIAnalysisModal({
 
   if (!isOpen) return null;
 
+  // レポートコンテンツを高解像度 Canvas 化する共通処理
+  const captureReportCanvas = async () => {
+    const reportElement = document.getElementById('ai-report-export-area');
+    if (!reportElement) return null;
+
+    const html2canvas = (await import('html2canvas')).default;
+    return await html2canvas(reportElement, {
+      scale: 2, // 2倍高解像度キャプチャ
+      useCORS: true,
+      backgroundColor: '#141414',
+      logging: false,
+    });
+  };
+
+  // PDF 出力処理
+  const handleExportPDF = async () => {
+    if (isExporting || !analysis) return;
+    setIsExporting(true);
+    try {
+      const canvas = await captureReportCanvas();
+      if (!canvas) return;
+
+      const { jsPDF } = await import('jspdf');
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+
+      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const sanitizedTitle = channelTitle.replace(/[\\/:*?"<>|]/g, '_');
+      pdf.save(`AIポジショニング分析_${sanitizedTitle}_${dateStr}.pdf`);
+    } catch (err) {
+      console.error('PDF出力エラー:', err);
+      alert('PDFの出力に失敗しました。');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // PNG/SVG 画像出力処理
+  const handleExportImage = async () => {
+    if (isExporting || !analysis) return;
+    setIsExporting(true);
+    try {
+      const canvas = await captureReportCanvas();
+      if (!canvas) return;
+
+      const imgData = canvas.toDataURL('image/png');
+      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const sanitizedTitle = channelTitle.replace(/[\\/:*?"<>|]/g, '_');
+
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = `AIポジショニング分析_${sanitizedTitle}_${dateStr}.png`;
+      link.click();
+    } catch (err) {
+      console.error('画像出力エラー:', err);
+      alert('画像の出力に失敗しました。');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -48,9 +118,35 @@ export default function AIAnalysisModal({
               <p className={styles.subtitle}>対象チャンネル: {channelTitle}</p>
             </div>
           </div>
-          <button className={styles.closeButton} onClick={onClose} title="閉じる">
-            <X size={20} />
-          </button>
+
+          <div className={styles.headerActions}>
+            {/* エクスポートボタン群 (ヘッダー側) */}
+            {analysis && !isLoading && (
+              <div className={styles.exportGroupHeader}>
+                <button
+                  onClick={handleExportPDF}
+                  className={styles.exportBtnHeader}
+                  title="レポートを PDF としてダウンロード"
+                  disabled={isExporting}
+                >
+                  <FileText size={13} />
+                  <span>PDF</span>
+                </button>
+                <button
+                  onClick={handleExportImage}
+                  className={styles.exportBtnHeader}
+                  title="レポートを画像 (PNG/SVG) としてダウンロード"
+                  disabled={isExporting}
+                >
+                  <Image size={13} />
+                  <span>画像</span>
+                </button>
+              </div>
+            )}
+            <button className={styles.closeButton} onClick={onClose} title="閉じる">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* モーダルコンテンツ */}
@@ -60,14 +156,13 @@ export default function AIAnalysisModal({
             <div className={styles.skeletonContainer}>
               <div className={styles.skeletonTitle}>
                 <Sparkles className={styles.skeletonIcon} size={16} />
-                <span>AIが動画データを定量・定性的に分析中...</span>
+                <span>AIが競合データを多角的にポジショニング分析中...</span>
               </div>
-              <div className={styles.skeletonLine} style={{ width: '90%' }}></div>
-              <div className={styles.skeletonLine} style={{ width: '80%' }}></div>
-              <div className={styles.skeletonLine} style={{ width: '85%' }}></div>
+              <div className={styles.skeletonLine} style={{ width: '80%' }} />
+              <div className={styles.skeletonLine} style={{ width: '60%' }} />
               <div className={styles.skeletonGrid}>
-                <div className={styles.skeletonCard}></div>
-                <div className={styles.skeletonCard}></div>
+                <div className={styles.skeletonCard} />
+                <div className={styles.skeletonCard} />
               </div>
             </div>
           )}
@@ -75,23 +170,29 @@ export default function AIAnalysisModal({
           {/* エラー表示 */}
           {error && (
             <div className={styles.errorContainer}>
-              <AlertCircle size={20} className={styles.errorIcon} />
+              <AlertCircle className={styles.errorIcon} size={24} />
               <div className={styles.errorText}>
-                <h4>分析レポートの作成に失敗しました</h4>
+                <h4>AI分析の生成に失敗しました</h4>
                 <p>{error}</p>
               </div>
             </div>
           )}
 
-          {/* 正常系レポート表示 */}
+          {/* レポートコンテンツ (キャプチャ対象 ID: ai-report-export-area) */}
           {!isLoading && !error && analysis && (
-            <div className={styles.reportContent}>
-              {/* 1行要約 */}
+            <div id="ai-report-export-area" className={styles.reportContent}>
+              {/* レポートキャプチャ用ヘッダーブランディング */}
+              <div className={styles.exportBranding}>
+                <span className={styles.brandingTitle}>YouTube Research Toolkit - AI Positioning Analysis</span>
+                <span className={styles.brandingChannel}>Target: {channelTitle}</span>
+              </div>
+
+              {/* 概要・サマリー */}
               <div className={styles.summarySection}>
                 <p className={styles.summaryText}>{analysis.channel_summary}</p>
               </div>
 
-              {/* 強みと弱みの2カラム */}
+              {/* 強み・弱み (2カラム) */}
               <div className={styles.grid2}>
                 <div className={`${styles.card} ${styles.cardStrength}`}>
                   <h4>
@@ -151,22 +252,47 @@ export default function AIAnalysisModal({
                 </ul>
               </div>
 
-              {/* レポート生成日時 & 再分析ボタン */}
+              {/* レポート生成日時 & コントロール */}
               <div className={styles.footer}>
                 <span className={styles.generatedAt}>
                   分析日時: {new Date(analysis.generated_at).toLocaleString('ja-JP')}
                 </span>
-                {onReanalyze && (
-                  <button
-                    onClick={onReanalyze}
-                    className={styles.reanalyzeBtn}
-                    title="最新のドメインナレッジ (domain_knowledge.txt) を読み込み強制再分析します"
-                    disabled={isLoading}
-                  >
-                    <RefreshCw size={13} className={isLoading ? styles.spinning : ''} />
-                    <span>最新ノウハウで再分析</span>
-                  </button>
-                )}
+
+                <div className={styles.footerControls}>
+                  {/* エクスポートボタン群 (フッター側) */}
+                  <div className={styles.exportGroupFooter}>
+                    <button
+                      onClick={handleExportPDF}
+                      className={styles.exportBtnFooter}
+                      title="レポートを PDF としてダウンロード"
+                      disabled={isExporting}
+                    >
+                      <FileText size={13} />
+                      <span>📄 PDF保存</span>
+                    </button>
+                    <button
+                      onClick={handleExportImage}
+                      className={styles.exportBtnFooter}
+                      title="レポートを画像 (PNG/SVG) としてダウンロード"
+                      disabled={isExporting}
+                    >
+                      <Image size={13} />
+                      <span>🖼️ 画像保存</span>
+                    </button>
+                  </div>
+
+                  {onReanalyze && (
+                    <button
+                      onClick={onReanalyze}
+                      className={styles.reanalyzeBtn}
+                      title="最新のドメインナレッジ (domain_knowledge.txt) を読み込み強制再分析します"
+                      disabled={isLoading || isExporting}
+                    >
+                      <RefreshCw size={13} className={isLoading ? styles.spinning : ''} />
+                      <span>最新ノウハウで再分析</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -7,7 +7,7 @@ YouTubeの競合チャンネル分析・追跡、およびAIを用いた差別�
 ## 概要
 
 新しくYouTubeチャンネルを立ち上げる際、あるいは既存チャンネルを成長させる際、競合チャンネルが「どのように成長してきたか」を定量・定性的に追跡・分析します。
-収集したデータを元に、AI（Gemini API）を活用して「競合がまだカバーしていないテーマ」や「独自のポジショニング」を分析・導き出すほか、ドメインナレッジ（RAG）を用いた高度なリスク分析を提供します。
+収集したデータを元に、AI（Gemini API）を活用して「競合がまだカバーしていないテーマ」や「独自のポジショニング」を分析・導き出すほか、ドメインナレッジ（RAG）を用いた高度なリスク分析と PDF / 画像レポート保存機能を提供します。
 
 ---
 
@@ -38,19 +38,23 @@ YouTubeの競合チャンネル分析・追跡、およびAIを用いた差別�
   * `💎 10万+` `🥇 1万+` `🥈 1千+` `📌 ピン留め` のワンタップ一括選択ボタン。
   * 「登録者数 [ `数値` ] 人以上」の自由指定カスタム入力フォーム。
 
-### 🤖 ドメイン知識注入型 AIポジショニング分析 (RAG拡張)
+### 🤖 ドメイン知識注入型 AIポジショニング分析 (RAG拡張 ＆ レポート出力)
 * **Gemini API 構造化出力 (Structured Outputs)**:
   * 競合の「強み」「弱み」「ヒットテーマ」「差別化・ポジショニング戦略アドバイス」を精密に抽出・レポート出力。
 * **🧠 外部ドメインナレッジファイル (`backend/app/data/domain_knowledge.txt`) によるRAG拡張**:
   * 画一的な「Shorts動画を作りましょう」といった提案を控え、BGM/作業用コンテンツ特有の「連続視聴維持時間（Retention Rate）の重要性」や「Shorts流入によるアルゴリズム評価悪化リスク」を前提知識としてプロンプトに注入。
 * **🔄 「最新ノウハウで再分析」機能**:
   * モーダル内から `domain_knowledge.txt` の最新知見を読み込んで一発強制再分析（キャッシュ上書き）を実行可能。
+* **📄 PDF ＆ 🖼️ 高画質画像 (PNG/SVG) 保存・ダウンロード機能 (#37)**:
+  * `html2canvas` + `jspdf` による 100% 画面デザイン完全忠実キャプチャ。
+  * モーダルのヘッダー右側およびフッターに設置されたワンタップボタンから、ダークモードやグラデーションカードのまま高解像度 (`scale: 2`) で PDF ファイル (`.pdf`) または画像ファイル (`.png` / `.svg`) として即座にローカル保存可能。
+  * **出力ファイル名ルール**: `AIポジショニング分析_{チャンネルタイトル}_{YYYYMMDD}.pdf`
 
 ---
 
 ## 技術スタック
 
-* **フロントエンド**: Next.js 14 (App Router) + TypeScript + Recharts (データ可視化) + Lucide React + Vanilla CSS (CSS Modules)
+* **フロントエンド**: Next.js 14 (App Router) + TypeScript + Recharts (データ可視化) + Lucide React + html2canvas + jspdf + Vanilla CSS (CSS Modules)
 * **バックエンド**: FastAPI (Python 3.12) + SQLAlchemy + SQLite (ローカルデータベース)
 * **AI・外部API**: YouTube Data API v3, Gemini API (`google-genai` SDK / Structured Outputs)
 * **自動収集バッチ**: GitHub Actions (日次自動フェッチ) + CLI python バッチ
@@ -78,7 +82,7 @@ youtube-research-toolkit/
 │   │   ├── components/       # UIコンポーネント (ChannelCard, GrowthComparisonView, AIAnalysisModal)
 │   │   ├── utils/            # API通信関数 (api.ts)
 │   │   └── page.tsx          # メインページ (タブ切替・ソートコントロール)
-│   └── package.json          # 依存パッケージ一覧
+│   └── package.json          # 依存パッケージ一覧 (html2canvas, jspdf 搭載)
 └── README.md                 # 本ドキュメント
 ```
 
@@ -123,4 +127,4 @@ npm run dev
 PCが起動していなくても、毎日自動的に競合チャンネルの数値（登録者、再生数、動画数）を収集・蓄積する仕組みを搭載しています。
 
 * **`YOUTUBE_API_KEY`**: YouTube Data API キー
-* **`MONITOR_CHANNELS`**: 監視したい YouTube チャンネルIDをカンマ区切りで指定（全24チャンネル設定対応）。
+* **`MONITOR_CHANNELS`**: 監視したい YouTube チャンネルIDをカンマ区切りで指定（全25チャンネル設定対応）。

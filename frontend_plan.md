@@ -44,6 +44,9 @@
   * 強み、弱み、ヒットテーマ、BGMジャンルの特性を踏まえた差別化ポジショニングアドバイスの可視化。
 * **🔄 「最新ノウハウで再分析」機能**:
   * モーダル内から `domain_knowledge.txt` の最新知見を反映した再分析（強制キャッシュ更新）の一発実行。
+* **📄 PDF ＆ 🖼️ 画像 (PNG/SVG) エクスポート機能 (#37)**:
+  * `html2canvas` ＋ `jspdf` を使用し、アプリ画面の美しいダークモードやグラデーションカードの見た目を 100% 忠実高画質 (`scale: 2`) でキャプチャ。
+  * モーダルのヘッダー右側およびフッターに設置された `📄 PDF保存` および `🖼️ 画像保存` ボタンからワンタップでローカルダウンロード実行。
 
 ---
 
@@ -52,9 +55,9 @@
 ```text
 frontend/src/app/
 ├── components/
-│   ├── AIAnalysisModal.tsx             # AI分析結果モーダル
+│   ├── AIAnalysisModal.tsx             # AI分析結果モーダル (PDF & 画像エクスポート機能搭載)
 │   ├── AIAnalysisModal.module.css
-│   ├── ChannelCard.tsx                 # 競合チャンネルカード
+│   ├── ChannelCard.tsx                 # 競合チャンネルカード (ランクグラデーション & 注目フラグ)
 │   ├── ChannelCard.module.css
 │   ├── ChannelHistoryChart.tsx         # カード内インライン時系列グラフ
 │   ├── ChannelRegisterForm.tsx         # チャンネル登録フォーム
@@ -62,6 +65,6 @@ frontend/src/app/
 │   └── GrowthComparisonView.module.css
 ├── utils/
 │   └── api.ts                          # バックエンドAPI通信モジュール
-├── page.tsx                            # メインアプリケーションエントリーポイント
+├── page.tsx                            # メインアプリケーションエントリーポイント (ソート制御)
 └── page.module.css                     # メインページスタイル
 ```

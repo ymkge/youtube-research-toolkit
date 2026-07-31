@@ -6,12 +6,13 @@ import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
 import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
-import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown } from 'lucide-react';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
 import styles from './page.module.css';
 
 type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
 type SortOrder = 'desc' | 'asc';
 type RankFilter = 'ALL' | 'DIAMOND' | 'GOLD' | 'SILVER' | 'BRONZE' | 'PINNED';
+type TrendMetric = 'views' | 'subscribers' | 'videos';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'comparison'>('dashboard');
@@ -26,6 +27,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortKey>('custom');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [isAllTrendExpanded, setIsAllTrendExpanded] = useState(false);
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>('views');
 
   // AI分析表示モーダル用のステート
   const [activeAnalysisChannel, setActiveAnalysisChannel] = useState<Channel | null>(null);
@@ -382,6 +384,21 @@ export default function Home() {
                       )}
                     </button>
 
+                    {/* トレンドグラフ一括指標選択ドロップダウン */}
+                    <div className={styles.trendMetricSelectWrapper}>
+                      <BarChart2 size={14} className={styles.trendMetricIcon} />
+                      <select
+                        value={trendMetric}
+                        onChange={(e) => setTrendMetric(e.target.value as TrendMetric)}
+                        className={styles.trendMetricSelect}
+                        title="一括表示・切替する統計指標を選択"
+                      >
+                        <option value="views">🎬 指標: 総再生数</option>
+                        <option value="subscribers">👥 指標: 登録者数</option>
+                        <option value="videos">📹 指標: 動画数</option>
+                      </select>
+                    </div>
+
                     {/* ソートコントロール */}
                     <div className={styles.sortControlGroup}>
                       <div className={styles.sortSelectWrapper}>
@@ -467,6 +484,7 @@ export default function Home() {
                       isDraggingNow={channel.id === draggedId}
                       onShowAIAnalysis={handleShowAIAnalysis}
                       isAllTrendExpanded={isAllTrendExpanded}
+                      allTrendMetric={trendMetric}
                     />
                   ))}
                 </div>

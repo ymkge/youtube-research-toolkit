@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChannelStatsHistory } from '../utils/api';
 import styles from './ChannelHistoryChart.module.css';
 import {
@@ -14,12 +14,13 @@ import {
   TooltipProps
 } from 'recharts';
 
+type MetricType = 'subscribers' | 'views' | 'videos';
+
 interface ChannelHistoryChartProps {
   history: ChannelStatsHistory[];
   isLoading: boolean;
+  initialMetric?: MetricType;
 }
-
-type MetricType = 'subscribers' | 'views' | 'videos';
 
 // 数値を読みやすい単位（万、億）にフォーマットする関数
 function formatMetricValue(value: number): string {
@@ -42,8 +43,14 @@ function formatChartDate(dateStr: string): string {
   return dateStr;
 }
 
-export default function ChannelHistoryChart({ history, isLoading }: ChannelHistoryChartProps) {
-  const [metric, setMetric] = useState<MetricType>('subscribers');
+export default function ChannelHistoryChart({ history, isLoading, initialMetric = 'subscribers' }: ChannelHistoryChartProps) {
+  const [metric, setMetric] = useState<MetricType>(initialMetric);
+
+  useEffect(() => {
+    if (initialMetric) {
+      setMetric(initialMetric);
+    }
+  }, [initialMetric]);
 
   if (isLoading) {
     return (

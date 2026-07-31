@@ -236,6 +236,40 @@
   box-shadow: 0 0 12px rgba(255, 0, 127, 0.25);
 }
 
+.trendMetricSelectWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.trendMetricIcon {
+  position: absolute;
+  left: 10px;
+  color: #00ff7f;
+  pointer-events: none;
+}
+
+.trendMetricSelect {
+  background-color: #181818;
+  color: #00ff7f;
+  border: 1px solid rgba(0, 255, 127, 0.3);
+  border-radius: 8px;
+  padding: 5px 12px 5px 28px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.trendMetricSelect:hover,
+.trendMetricSelect:focus {
+  border-color: #00ff7f;
+  box-shadow: 0 0 10px rgba(0, 255, 127, 0.2);
+}
+
 .sortControlGroup {
   display: flex;
   align-items: center;

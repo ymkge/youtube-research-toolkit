@@ -14,6 +14,7 @@ interface ChannelCardProps {
   isDraggingNow?: boolean;
   onShowAIAnalysis: (channel: Channel) => void;
   isAllTrendExpanded?: boolean;
+  allTrendMetric?: 'subscribers' | 'views' | 'videos';
 }
 
 // 数値を読みやすい単位（万、億）にフォーマットする関数
@@ -70,7 +71,8 @@ export default function ChannelCard({
   onDragEnd,
   isDraggingNow = false,
   onShowAIAnalysis,
-  isAllTrendExpanded
+  isAllTrendExpanded,
+  allTrendMetric
 }: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
@@ -321,7 +323,7 @@ export default function ChannelCard({
 
       {/* ★ トレンド折れ線グラフコンポーネント (アコーディオン展開されるエリア) */}
       {showChart && (
-        <ChannelHistoryChart history={history} isLoading={isHistoryLoading} />
+        <ChannelHistoryChart history={history} isLoading={isHistoryLoading} initialMetric={allTrendMetric} />
       )}
     </div>
   );

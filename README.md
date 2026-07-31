@@ -107,9 +107,9 @@ GEMINI_API_KEY=your_gemini_api_key_here
 cd backend
 source venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8001
 ```
-[http://localhost:8000/docs](http://localhost:8000/docs) で API Swagger UI にアクセスできます。
+[http://localhost:8001/docs](http://localhost:8001/docs) で API Swagger UI にアクセスできます。
 
 ### 2. フロントエンド (Next.js) の起動
 

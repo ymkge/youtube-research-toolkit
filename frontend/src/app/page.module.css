@@ -207,6 +207,35 @@
   box-shadow: 0 0 10px rgba(138, 43, 226, 0.2);
 }
 
+.toggleAllTrendsBtn {
+  background-color: #181818;
+  border: 1px solid #333344;
+  color: #c084fc;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.toggleAllTrendsBtn:hover {
+  background-color: rgba(138, 43, 226, 0.15);
+  border-color: #8a2be2;
+  color: #ffffff;
+}
+
+.toggleActive {
+  background: linear-gradient(135deg, rgba(255, 0, 127, 0.2) 0%, rgba(138, 43, 226, 0.2) 100%);
+  border: 1px solid #ff007f;
+  color: #ff007f;
+  box-shadow: 0 0 12px rgba(255, 0, 127, 0.25);
+}
+
 .sortControlGroup {
   display: flex;
   align-items: center;

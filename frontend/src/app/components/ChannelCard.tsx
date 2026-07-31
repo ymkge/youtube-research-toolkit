@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Channel, fetchChannelHistory, ChannelStatsHistory } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
@@ -13,6 +13,7 @@ interface ChannelCardProps {
   onDragEnd: (e: React.DragEvent) => void;
   isDraggingNow?: boolean;
   onShowAIAnalysis: (channel: Channel) => void;
+  isAllTrendExpanded?: boolean;
 }
 
 // 数値を読みやすい単位（万、億）にフォーマットする関数
@@ -68,7 +69,8 @@ export default function ChannelCard({
   onDragOver,
   onDragEnd,
   isDraggingNow = false,
-  onShowAIAnalysis
+  onShowAIAnalysis,
+  isAllTrendExpanded
 }: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
@@ -78,6 +80,31 @@ export default function ChannelCard({
   const [showChart, setShowChart] = useState(false);
   const [history, setHistory] = useState<ChannelStatsHistory[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  // 親からの一括開閉フラグ変化を検知して同期
+  useEffect(() => {
+    if (isAllTrendExpanded !== undefined) {
+      setShowChart(isAllTrendExpanded);
+    }
+  }, [isAllTrendExpanded]);
+
+  // showChart が true になった時、未ロードであれば自動的に履歴データをフェッチ
+  useEffect(() => {
+    if (showChart && history.length === 0 && !isHistoryLoading) {
+      const loadHistory = async () => {
+        setIsHistoryLoading(true);
+        try {
+          const data = await fetchChannelHistory(channel.id);
+          setHistory(data);
+        } catch (err) {
+          console.error('統計履歴データのロードに失敗しました:', err);
+        } finally {
+          setIsHistoryLoading(false);
+        }
+      };
+      loadHistory();
+    }
+  }, [showChart, channel.id, history.length, isHistoryLoading]);
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -101,23 +128,9 @@ export default function ChannelCard({
     }
   };
 
-  const handleTrendClick = async (e: React.MouseEvent) => {
+  const handleTrendClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const nextState = !showChart;
-    setShowChart(nextState);
-
-    // グラフを表示する際、未ロードの場合のみAPIから履歴データをフェッチ
-    if (nextState && history.length === 0) {
-      setIsHistoryLoading(true);
-      try {
-        const data = await fetchChannelHistory(channel.id);
-        setHistory(data);
-      } catch (err) {
-        console.error('統計履歴データのロードに失敗しました:', err);
-      } finally {
-        setIsHistoryLoading(false);
-      }
-    }
+    setShowChart(!showChart);
   };
 
 

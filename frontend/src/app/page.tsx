@@ -6,7 +6,7 @@ import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
 import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
-import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown } from 'lucide-react';
 import styles from './page.module.css';
 
 type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
@@ -20,11 +20,12 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<number | null>(null);
 
-  // フィルター＆ソート用ステート
+  // フィルター＆ソート＆トレンド一括表示用ステート
   const [searchQuery, setSearchQuery] = useState('');
   const [rankFilter, setRankFilter] = useState<RankFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortKey>('custom');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [isAllTrendExpanded, setIsAllTrendExpanded] = useState(false);
 
   // AI分析表示モーダル用のステート
   const [activeAnalysisChannel, setActiveAnalysisChannel] = useState<Channel | null>(null);
@@ -362,6 +363,25 @@ export default function Home() {
                       </button>
                     </div>
 
+                    {/* トレンドグラフ一括表示・折りたたみボタン */}
+                    <button
+                      onClick={() => setIsAllTrendExpanded(!isAllTrendExpanded)}
+                      className={`${styles.toggleAllTrendsBtn} ${isAllTrendExpanded ? styles.toggleActive : ''}`}
+                      title={isAllTrendExpanded ? "表示中のチャンネルのトレンド表示を一括で閉じる" : "表示中のチャンネルのトレンド表示を一括で展開"}
+                    >
+                      {isAllTrendExpanded ? (
+                        <>
+                          <TrendingDown size={14} />
+                          <span>一括閉じる</span>
+                        </>
+                      ) : (
+                        <>
+                          <TrendingUp size={14} />
+                          <span>トレンド一括表示</span>
+                        </>
+                      )}
+                    </button>
+
                     {/* ソートコントロール */}
                     <div className={styles.sortControlGroup}>
                       <div className={styles.sortSelectWrapper}>
@@ -446,6 +466,7 @@ export default function Home() {
                       onDragEnd={handleDragEnd}
                       isDraggingNow={channel.id === draggedId}
                       onShowAIAnalysis={handleShowAIAnalysis}
+                      isAllTrendExpanded={isAllTrendExpanded}
                     />
                   ))}
                 </div>

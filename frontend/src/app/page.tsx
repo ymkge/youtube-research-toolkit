@@ -6,11 +6,12 @@ import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
 import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
-import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw } from 'lucide-react';
 import styles from './page.module.css';
 
 type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
 type SortOrder = 'desc' | 'asc';
+type RankFilter = 'ALL' | 'DIAMOND' | 'GOLD' | 'SILVER' | 'BRONZE' | 'PINNED';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'comparison'>('dashboard');
@@ -19,7 +20,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<number | null>(null);
 
-  // ソート用ステート
+  // フィルター＆ソート用ステート
+  const [searchQuery, setSearchQuery] = useState('');
+  const [rankFilter, setRankFilter] = useState<RankFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortKey>('custom');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
@@ -29,20 +32,45 @@ export default function Home() {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // ソート条件に基づいてチャンネル配列を動的に並び替え
-  const sortedChannels = React.useMemo(() => {
-    return [...channels].sort((a, b) => {
-      // 1. ピン留め優先制御 (ピン留めされているものが常に上)
+  // フィルター条件およびソート条件に基づいてチャンネル配列を動的に計算
+  const filteredAndSortedChannels = React.useMemo(() => {
+    // 1. キーワードおよびランク/ピン留めによるフィルタリング
+    const filtered = channels.filter((channel) => {
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchTitle = channel.title.toLowerCase().includes(query);
+        const matchUrl = channel.custom_url ? channel.custom_url.toLowerCase().includes(query) : false;
+        if (!matchTitle && !matchUrl) return false;
+      }
+
+      const subs = channel.subscriber_count || 0;
+      switch (rankFilter) {
+        case 'DIAMOND':
+          return subs >= 100000;
+        case 'GOLD':
+          return subs >= 10000 && subs < 100000;
+        case 'SILVER':
+          return subs >= 1000 && subs < 10000;
+        case 'BRONZE':
+          return subs < 1000;
+        case 'PINNED':
+          return channel.is_pinned === true;
+        case 'ALL':
+        default:
+          return true;
+      }
+    });
+
+    // 2. ソート順を適用
+    return filtered.sort((a, b) => {
       if (a.is_pinned !== b.is_pinned) {
         return a.is_pinned ? -1 : 1;
       }
 
-      // 2. カスタム順 (標準ドラッグ順) の場合
       if (sortBy === 'custom') {
         return a.sort_order - b.sort_order;
       }
 
-      // 3. 各指標の数値比較
       let valA = 0;
       let valB = 0;
 
@@ -67,7 +95,12 @@ export default function Home() {
 
       return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [channels, sortBy, sortOrder]);
+  }, [channels, searchQuery, rankFilter, sortBy, sortOrder]);
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setRankFilter('ALL');
+  };
 
   const handleShowAIAnalysis = async (channel: Channel, forceReanalyze: boolean = false) => {
     setActiveAnalysisChannel(channel);
@@ -259,49 +292,114 @@ export default function Home() {
                   <h2 className={styles.sectionTitle}>追跡中の競合チャンネル</h2>
                   {!isLoading && (
                     <span className={styles.countBadge}>
-                      登録中: <strong>{channels.length}</strong> 件
+                      表示: <strong>{filteredAndSortedChannels.length}</strong> / {channels.length} 件
                     </span>
                   )}
                 </div>
 
-                {/* ソートコントロール */}
+                {/* 検索・フィルター ＆ ソートコントロール */}
                 {!isLoading && channels.length > 0 && (
-                  <div className={styles.sortControlGroup}>
-                    <div className={styles.sortSelectWrapper}>
-                      <ArrowUpDown size={14} className={styles.sortIcon} />
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as SortKey)}
-                        className={styles.sortSelect}
-                        title="並び替え基準を選択"
-                      >
-                        <option value="custom">カスタム順 (手動ドラッグ順)</option>
-                        <option value="subscribers">登録者数順</option>
-                        <option value="views">総再生数順</option>
-                        <option value="videos">動画数順</option>
-                        <option value="avg_views">平均再生数順</option>
-                      </select>
+                  <div className={styles.controlsRow}>
+                    {/* キーワード検索窓 */}
+                    <div className={styles.searchWrapper}>
+                      <Search size={14} className={styles.searchIcon} />
+                      <input
+                        type="text"
+                        placeholder="チャンネル名・ハンドル名で検索..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className={styles.searchInput}
+                      />
+                      {searchQuery && (
+                        <button onClick={() => setSearchQuery('')} className={styles.clearSearchBtn} title="検索文字をクリア">
+                          <X size={12} />
+                        </button>
+                      )}
                     </div>
 
-                    {sortBy !== 'custom' && (
+                    {/* 規模ランク・ピン留めフィルターチップ */}
+                    <div className={styles.filterChipGroup}>
                       <button
-                        onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                        className={styles.sortOrderBtn}
-                        title={sortOrder === 'desc' ? '多い順 (降順) -> 少ない順に切替' : '少ない順 (昇順) -> 多い順に切替'}
+                        className={`${styles.filterChip} ${rankFilter === 'ALL' ? styles.chipActive : ''}`}
+                        onClick={() => setRankFilter('ALL')}
                       >
-                        {sortOrder === 'desc' ? (
-                          <>
-                            <ArrowDown size={14} />
-                            <span>多い順</span>
-                          </>
-                        ) : (
-                          <>
-                            <ArrowUp size={14} />
-                            <span>少ない順</span>
-                          </>
-                        )}
+                        すべて
                       </button>
-                    )}
+                      <button
+                        className={`${styles.filterChip} ${rankFilter === 'DIAMOND' ? styles.chipActive : ''}`}
+                        onClick={() => setRankFilter('DIAMOND')}
+                        title="登録者数 10万人以上"
+                      >
+                        💎 10万+
+                      </button>
+                      <button
+                        className={`${styles.filterChip} ${rankFilter === 'GOLD' ? styles.chipActive : ''}`}
+                        onClick={() => setRankFilter('GOLD')}
+                        title="登録者数 1万人〜10万人未満"
+                      >
+                        🥇 1万+
+                      </button>
+                      <button
+                        className={`${styles.filterChip} ${rankFilter === 'SILVER' ? styles.chipActive : ''}`}
+                        onClick={() => setRankFilter('SILVER')}
+                        title="登録者数 1,000人〜1万人未満"
+                      >
+                        🥈 1千+
+                      </button>
+                      <button
+                        className={`${styles.filterChip} ${rankFilter === 'BRONZE' ? styles.chipActive : ''}`}
+                        onClick={() => setRankFilter('BRONZE')}
+                        title="登録者数 1,000人未満"
+                      >
+                        🥉 1千未満
+                      </button>
+                      <button
+                        className={`${styles.filterChip} ${rankFilter === 'PINNED' ? styles.chipActive : ''}`}
+                        onClick={() => setRankFilter('PINNED')}
+                        title="ピン留め済みチャンネルのみ表示"
+                      >
+                        📌 ピン留め
+                      </button>
+                    </div>
+
+                    {/* ソートコントロール */}
+                    <div className={styles.sortControlGroup}>
+                      <div className={styles.sortSelectWrapper}>
+                        <ArrowUpDown size={14} className={styles.sortIcon} />
+                        <select
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value as SortKey)}
+                          className={styles.sortSelect}
+                          title="並び替え基準を選択"
+                        >
+                          <option value="custom">カスタム順 (手動ドラッグ順)</option>
+                          <option value="subscribers">登録者数順</option>
+                          <option value="views">総再生数順</option>
+                          <option value="videos">動画数順</option>
+                          <option value="avg_views">平均再生数順</option>
+                        </select>
+                      </div>
+
+                      {sortBy !== 'custom' && (
+                        <button
+                          onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                          className={styles.sortOrderBtn}
+                          title={sortOrder === 'desc' ? '多い順 (降順) -> 少ない順に切替' : '少ない順 (昇順) -> 多い順に切替'}
+                        >
+                          {sortOrder === 'desc' ? (
+                            <>
+                              <ArrowDown size={14} />
+                              <span>多い順</span>
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUp size={14} />
+                              <span>少ない順</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -325,9 +423,19 @@ export default function Home() {
                     上のフォームから、競合チャンネルのID（UC...）またはハンドル名（@...）を登録してください。
                   </p>
                 </div>
+              ) : filteredAndSortedChannels.length === 0 ? (
+                <div className={styles.emptyFilterState}>
+                  <Filter size={32} className={styles.emptyFilterIcon} />
+                  <h3>条件に一致するチャンネルが見つかりませんでした</h3>
+                  <p>検索キーワードや指定されたフィルター条件を変更してお試しください。</p>
+                  <button onClick={resetFilters} className={styles.resetFilterBtn}>
+                    <RotateCcw size={14} />
+                    <span>フィルターをリセット</span>
+                  </button>
+                </div>
               ) : (
                 <div className={styles.grid}>
-                  {sortedChannels.map((channel) => (
+                  {filteredAndSortedChannels.map((channel) => (
                     <ChannelCard 
                       key={channel.id} 
                       channel={channel} 

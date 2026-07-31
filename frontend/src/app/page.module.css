@@ -118,6 +118,95 @@
   flex-wrap: wrap;
 }
 
+.controlsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.searchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  color: #777777;
+  pointer-events: none;
+}
+
+.searchInput {
+  background-color: #181818;
+  color: #ffffff;
+  border: 1px solid #2d2d2d;
+  border-radius: 20px;
+  padding: 6px 28px 6px 30px;
+  font-size: 0.82rem;
+  outline: none;
+  width: 210px;
+  transition: all 0.2s ease;
+}
+
+.searchInput:focus {
+  border-color: #8a2be2;
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.2);
+  width: 240px;
+}
+
+.clearSearchBtn {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #777777;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.clearSearchBtn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.filterChipGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  background-color: #181818;
+  border: 1px solid #2d2d2d;
+  color: #aaaaaa;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filterChip:hover {
+  border-color: #8a2be2;
+  color: #ffffff;
+}
+
+.chipActive {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.25) 0%, rgba(0, 255, 127, 0.15) 100%);
+  border: 1px solid #8a2be2;
+  color: #00ff7f;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.2);
+}
+
 .sortControlGroup {
   display: flex;
   align-items: center;
@@ -268,4 +357,58 @@
   font-size: 0.9rem;
   margin-top: 0.5rem;
   color: #666666;
+}
+
+/* 0件時フィルター結果表示 */
+.emptyFilterState {
+  background-color: #141414;
+  border: 1px dashed #2d2d2d;
+  border-radius: 16px;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.emptyFilterIcon {
+  color: #8a2be2;
+  opacity: 0.7;
+}
+
+.emptyFilterState h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #ffffff;
+}
+
+.emptyFilterState p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #888888;
+}
+
+.resetFilterBtn {
+  margin-top: 0.5rem;
+  background-color: #1a1a24;
+  border: 1px solid #8a2be2;
+  color: #00ff7f;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.15);
+}
+
+.resetFilterBtn:hover {
+  background-color: #8a2be2;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(138, 43, 226, 0.4);
 }

@@ -68,6 +68,7 @@ def get_channels_comparison(db: Session = Depends(get_db)):
             "id": channel.id,
             "title": channel.title,
             "youtube_channel_id": channel.youtube_channel_id,
+            "custom_url": channel.custom_url,
             "thumbnail_url": channel.thumbnail_url,
             "color": color,
             "dash_pattern": dash_pattern,

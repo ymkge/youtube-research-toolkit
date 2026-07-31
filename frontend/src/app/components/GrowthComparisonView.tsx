@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { fetchChannelsComparison, ChannelsComparisonResponse, ComparisonChannelItem } from '../utils/api';
 import styles from './GrowthComparisonView.module.css';
 import {
@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, Users, Play, CheckSquare, Square, RefreshCw, AlertCircle, Filter } from 'lucide-react';
+import { TrendingUp, Users, Play, CheckSquare, Square, RefreshCw, AlertCircle, Filter, Search, X } from 'lucide-react';
 
 // 数値を読みやすい単位（万、億）にフォーマット
 function formatNumber(num: number): string {
@@ -33,6 +33,19 @@ export default function GrowthComparisonView() {
   const [hoveredChannelId, setHoveredChannelId] = useState<number | null>(null);
   // 自由入力カスタム登録者数フィルター
   const [customMinSubs, setCustomMinSubs] = useState<string>('');
+  // 左サイドバーチャンネル検索クエリ
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const filteredChannels = useMemo(() => {
+    if (!data) return [];
+    if (!searchQuery.trim()) return data.channels;
+    const query = searchQuery.toLowerCase().trim();
+    return data.channels.filter((c) => {
+      const matchTitle = c.title.toLowerCase().includes(query);
+      const matchUrl = c.custom_url ? c.custom_url.toLowerCase().includes(query) : false;
+      return matchTitle || matchUrl;
+    });
+  }, [data, searchQuery]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -62,12 +75,22 @@ export default function GrowthComparisonView() {
 
   const selectAll = () => {
     if (!data) return;
-    const historyChannelIds = data.channels.filter((c) => c.has_history).map((c) => c.id);
-    setSelectedChannelIds(historyChannelIds);
+    const targetIds = filteredChannels.filter((c) => c.has_history).map((c) => c.id);
+    if (!searchQuery.trim()) {
+      setSelectedChannelIds(targetIds);
+    } else {
+      setSelectedChannelIds((prev) => Array.from(new Set([...prev, ...targetIds])));
+    }
   };
 
   const deselectAll = () => {
-    setSelectedChannelIds([]);
+    if (!data) return;
+    if (!searchQuery.trim()) {
+      setSelectedChannelIds([]);
+    } else {
+      const targetIdsSet = new Set(filteredChannels.map((c) => c.id));
+      setSelectedChannelIds((prev) => prev.filter((id) => !targetIdsSet.has(id)));
+    }
   };
 
   // ランク別およびピン留めのワンタップ一括選択ハンドラー
@@ -262,12 +285,34 @@ export default function GrowthComparisonView() {
               </button>
             </form>
 
+            {/* チャンネルリスト検索窓 */}
+            <div className={styles.sidebarSearchWrapper}>
+              <Search size={13} className={styles.sidebarSearchIcon} />
+              <input
+                type="text"
+                placeholder="チャンネル名・ハンドルで検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={styles.sidebarSearchInput}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className={styles.clearSidebarSearchBtn} title="検索をクリア">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
             {/* チャンネル選択バッジ一覧 */}
             <div className={styles.filterGrid}>
-              {data.channels.map((channel) => {
-                const isSelected = selectedChannelIds.includes(channel.id);
-                const isHovered = hoveredChannelId === channel.id;
-                const disabled = !channel.has_history;
+              {filteredChannels.length === 0 ? (
+                <div className={styles.noSearchResult}>
+                  <span>一致するチャンネルがありません</span>
+                </div>
+              ) : (
+                filteredChannels.map((channel) => {
+                  const isSelected = selectedChannelIds.includes(channel.id);
+                  const isHovered = hoveredChannelId === channel.id;
+                  const disabled = !channel.has_history;
 
                 return (
                   <button
@@ -294,7 +339,7 @@ export default function GrowthComparisonView() {
                     {disabled && <span className={styles.disabledLabel}>(データなし)</span>}
                   </button>
                 );
-              })}
+              }))}
             </div>
           </div>
         </aside>

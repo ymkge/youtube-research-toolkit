@@ -260,6 +260,67 @@
   pointer-events: none;
 }
 
+/* 左サイドバー検索窓 */
+.sidebarSearchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.sidebarSearchIcon {
+  position: absolute;
+  left: 8px;
+  color: #777777;
+  pointer-events: none;
+}
+
+.sidebarSearchInput {
+  width: 100%;
+  background-color: #141414;
+  border: 1px solid #282828;
+  border-radius: 6px;
+  padding: 5px 26px 5px 26px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sidebarSearchInput:focus {
+  border-color: #8a2be2;
+  box-shadow: 0 0 8px rgba(138, 43, 226, 0.2);
+}
+
+.clearSidebarSearchBtn {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: #777777;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.clearSidebarSearchBtn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.noSearchResult {
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #777777;
+  background-color: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px dashed #262626;
+}
+
 .applyBtn {
   background-color: #8a2be2;
   color: #ffffff;

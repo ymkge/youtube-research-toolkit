@@ -178,6 +178,7 @@ export interface ComparisonChannelItem {
   id: number;
   title: string;
   youtube_channel_id: string;
+  custom_url?: string | null;
   thumbnail_url: string | null;
   color: string;
   dash_pattern: string;

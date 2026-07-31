@@ -51,3 +51,8 @@ htmlcov/
 .env.development
 .env.production
 .env.local
+
+# Kindle Book Manuscripts & Outlines (Private - Do not push to GitHub)
+docs/kindle/
+kindle_book_outline.md
+

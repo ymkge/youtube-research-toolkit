@@ -209,3 +209,56 @@ export async function fetchChannelsComparison(): Promise<ChannelsComparisonRespo
   }
   return res.json();
 }
+
+/**
+ * 同期ステータスインターフェース
+ */
+export interface MissingChannelItem {
+  id: number;
+  youtube_channel_id: string;
+  title: string;
+  custom_url?: string | null;
+  last_recorded_at?: string | null;
+}
+
+export interface SyncStatusResponse {
+  today: string;
+  total_channels: number;
+  updated_count: number;
+  missing_count: number;
+  is_all_updated: boolean;
+  missing_channels: MissingChannelItem[];
+}
+
+export interface FetchMissingResponse {
+  message: string;
+  fetched_count: number;
+  updated_channels: string[];
+}
+
+/**
+ * 本日(JST)のデータ同期状態を取得します。
+ */
+export async function fetchSyncStatus(): Promise<SyncStatusResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/sync-status`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || '同期ステータスの取得に失敗しました。');
+  }
+  return res.json();
+}
+
+/**
+ * 本日未取得のチャンネルデータを即時フェッチして補完します。
+ */
+export async function fetchMissingTodayStats(): Promise<FetchMissingResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/fetch-missing-today`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || '未取得データの補完に失敗しました。');
+  }
+  return res.json();
+}
+

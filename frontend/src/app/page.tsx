@@ -6,6 +6,7 @@ import ChannelRegisterForm from './components/ChannelRegisterForm';
 import ChannelCard from './components/ChannelCard';
 import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
+import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
 import styles from './page.module.css';
 
@@ -283,6 +284,7 @@ export default function Home() {
       </header>
 
       <main className={styles.main}>
+        <SyncStatusBanner onRefreshData={loadChannels} />
         {activeTab === 'dashboard' ? (
           <>
             <section className={styles.registerSection}>

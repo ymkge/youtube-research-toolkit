@@ -6,6 +6,7 @@ from app.models.video import Video
 from app.models.channel_stats_history import ChannelStatsHistory
 from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest
 from app.schemas.channel_stats_history import ChannelStatsHistoryResponse
+from app.schemas.sync_status import SyncStatusResponse, FetchMissingResponse, MissingChannelItem
 from app.schemas.ai_analysis import AIAnalysisResponse
 from app.services.ai import ai_service
 from app.services.youtube import youtube_service
@@ -362,3 +363,152 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
     db.commit()
 
     return analysis_result
+
+
+@router.get("/sync-status", response_model=SyncStatusResponse)
+def get_sync_status(db: Session = Depends(get_db)):
+    """
+    本日 (JST) の時系列統計データが全チャンネルで取り込まれているかを検証・返却します。
+    """
+    from datetime import timezone, timedelta
+    from app.schemas.sync_status import SyncStatusResponse, MissingChannelItem
+
+    JST = timezone(timedelta(hours=+9))
+    today_date = datetime.datetime.now(JST).date()
+    today_str = today_date.isoformat()
+
+    all_channels = db.query(Channel).all()
+    total_channels = len(all_channels)
+
+    updated_count = 0
+    missing_channels = []
+
+    for channel in all_channels:
+        # 本日の履歴が存在するかチェック
+        history_record = db.query(ChannelStatsHistory).filter(
+            ChannelStatsHistory.channel_id == channel.id,
+            ChannelStatsHistory.recorded_at == today_date
+        ).first()
+
+        if history_record:
+            updated_count += 1
+        else:
+            # 最終記録日を取得
+            latest_history = db.query(ChannelStatsHistory).filter(
+                ChannelStatsHistory.channel_id == channel.id
+            ).order_by(ChannelStatsHistory.recorded_at.desc()).first()
+
+            last_date_str = latest_history.recorded_at.isoformat() if latest_history else None
+
+            missing_channels.append(MissingChannelItem(
+                id=channel.id,
+                youtube_channel_id=channel.youtube_channel_id,
+                title=channel.title,
+                custom_url=channel.custom_url,
+                last_recorded_at=last_date_str
+            ))
+
+    missing_count = total_channels - updated_count
+    is_all_updated = (missing_count == 0)
+
+    return SyncStatusResponse(
+        today=today_str,
+        total_channels=total_channels,
+        updated_count=updated_count,
+        missing_count=missing_count,
+        is_all_updated=is_all_updated,
+        missing_channels=missing_channels
+    )
+
+
+@router.post("/fetch-missing-today", response_model=FetchMissingResponse)
+def fetch_missing_today_stats(db: Session = Depends(get_db)):
+    """
+    本日 (JST) の統計データが未取得のチャンネルに対して、YouTube API から最新データをフェッチして補完します。
+    """
+    from datetime import timezone, timedelta
+    import os
+    import json
+    from app.schemas.sync_status import FetchMissingResponse
+
+    if not youtube_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="YouTube API Key が設定されていません。YOUTUBE_API_KEY 環境変数を設定してください。"
+        )
+
+    JST = timezone(timedelta(hours=+9))
+    today_date = datetime.datetime.now(JST).date()
+    today_str = today_date.isoformat()
+
+    all_channels = db.query(Channel).all()
+    updated_titles = []
+
+    history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "history"))
+    os.makedirs(history_dir, exist_ok=True)
+
+    for channel in all_channels:
+        # 本日の履歴が存在するか確認
+        existing_history = db.query(ChannelStatsHistory).filter(
+            ChannelStatsHistory.channel_id == channel.id,
+            ChannelStatsHistory.recorded_at == today_date
+        ).first()
+
+        # 未取得の場合のみ API をフェッチ
+        if not existing_history:
+            try:
+                info = youtube_service.get_channel_info(channel.youtube_channel_id)
+                sub_count = info["subscriber_count"]
+                view_count = info["view_count"]
+                video_count = info["video_count"]
+
+                # 1. 親Channelの最新数値更新
+                channel.subscriber_count = sub_count
+                channel.view_count = view_count
+                channel.video_count = video_count
+
+                # 2. ChannelStatsHistoryの新規レコード作成
+                new_record = ChannelStatsHistory(
+                    channel_id=channel.id,
+                    subscriber_count=sub_count,
+                    view_count=view_count,
+                    video_count=video_count,
+                    recorded_at=today_date
+                )
+                db.add(new_record)
+
+                # 3. data/history/*.json への保存・更新
+                json_file_path = os.path.join(history_dir, f"{channel.youtube_channel_id}.json")
+                history_data = []
+                if os.path.exists(json_file_path):
+                    try:
+                        with open(json_file_path, "r", encoding="utf-8") as f:
+                            history_data = json.load(f)
+                    except Exception:
+                        history_data = []
+
+                history_data = [item for item in history_data if item.get("date") != today_str]
+                history_data.append({
+                    "date": today_str,
+                    "subscriber_count": sub_count,
+                    "view_count": view_count,
+                    "video_count": video_count
+                })
+                history_data.sort(key=lambda x: x["date"])
+
+                with open(json_file_path, "w", encoding="utf-8") as f:
+                    json.dump(history_data, f, indent=2, ensure_ascii=False)
+
+                updated_titles.append(channel.title)
+
+            except Exception as e:
+                print(f"Failed to fetch missing stats for {channel.title}: {e}")
+
+    db.commit()
+
+    return FetchMissingResponse(
+        message=f"本日未取得だった {len(updated_titles)} 件のチャンネルデータを手動補テン・保存しました。",
+        fetched_count=len(updated_titles),
+        updated_channels=updated_titles
+    )
+

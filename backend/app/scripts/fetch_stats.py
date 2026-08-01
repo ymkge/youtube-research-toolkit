@@ -116,14 +116,16 @@ def run_json_mode():
             channels_to_fetch.append((c.youtube_channel_id, c.title))
     except Exception as e:
         print(f"Database connection skipped or failed: {e}. Reading targets from config or environment...")
-        # フォールバック: 環境変数  "MONITOR_CHANNELS" にカンマ区切りで ID リストがある場合
+    finally:
+        db.close()
+
+    # DBから取得できなかった場合は環境変数 MONITOR_CHANNELS から読み込む
+    if not channels_to_fetch:
         env_channels = os.environ.get("MONITOR_CHANNELS", "")
         if env_channels:
             for item in env_channels.split(","):
                 if item.strip():
                     channels_to_fetch.append((item.strip(), item.strip()))
-    finally:
-        db.close()
 
     if not channels_to_fetch:
         print("No channels target found for JSON sync.")

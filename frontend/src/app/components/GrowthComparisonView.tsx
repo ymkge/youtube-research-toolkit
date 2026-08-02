@@ -118,6 +118,26 @@ export default function GrowthComparisonView() {
     setSelectedChannelIds(matchedIds);
   };
 
+  // 直近年日（タイムラインの最新要素）での登録者累積成長率 (%) 上位 N 件を自動抽出して選択
+  const selectTopGrowthChannels = (topN: number) => {
+    if (!data || data.timeline.length === 0) return;
+    const latestEntry = data.timeline[data.timeline.length - 1];
+
+    const historyChannels = data.channels.filter((c) => c.has_history);
+
+    const scoredChannels = historyChannels.map((c) => {
+      const growthKey = `sub_growth_${c.id}`;
+      const growthVal = latestEntry[growthKey];
+      const val = typeof growthVal === 'number' && !isNaN(growthVal) ? growthVal : 0;
+      return { id: c.id, growth: val };
+    });
+
+    scoredChannels.sort((a, b) => b.growth - a.growth);
+
+    const topIds = scoredChannels.slice(0, topN).map((item) => item.id);
+    setSelectedChannelIds(topIds);
+  };
+
   // 自由数値入力の適用ハンドラー
   const applyCustomMinSubsFilter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,8 +267,26 @@ export default function GrowthComparisonView() {
               </div>
             </div>
 
-            {/* 💎 規模別ワンタップ一括フィルター */}
+            {/* 🏆 累積成長率 Top5 / Top10 自動選択 ＆ 💎 規模別ワンタップ一括フィルター */}
             <div className={styles.quickFilterSection}>
+              <span className={styles.filterSectionLabel}>直近累積成長率 (%) Top選択:</span>
+              <div className={styles.quickFilterGrid} style={{ marginBottom: '0.6rem' }}>
+                <button
+                  onClick={() => selectTopGrowthChannels(5)}
+                  className={`${styles.quickFilterBtn} ${styles.quickFilterBtnTop}`}
+                  title="最新日付時点での登録者累積成長率 (%) 上位5チャンネルを一括自動抽出・選択"
+                >
+                  🏆 成長率 Top 5
+                </button>
+                <button
+                  onClick={() => selectTopGrowthChannels(10)}
+                  className={`${styles.quickFilterBtn} ${styles.quickFilterBtnTop}`}
+                  title="最新日付時点での登録者累積成長率 (%) 上位10チャンネルを一括自動抽出・選択"
+                >
+                  🔥 Top 10
+                </button>
+              </div>
+
               <span className={styles.filterSectionLabel}>規模別一括選択:</span>
               <div className={styles.quickFilterGrid}>
                 <button onClick={() => selectByFilter('100k')} className={styles.quickFilterBtn} title="登録者10万人以上のチャンネルを全選択">

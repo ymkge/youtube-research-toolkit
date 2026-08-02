@@ -11,29 +11,15 @@
 
 .form {
   display: flex;
-  gap: 1rem;
-  align-items: flex-end;
-}
-
-@media (max-width: 640px) {
-  .form {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .inputGroup {
-  flex: 2;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.inputGroupLimit {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  width: 100%;
 }
 
 .label {
@@ -42,7 +28,22 @@
   font-weight: 500;
 }
 
+.inputRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .inputRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 .input {
+  flex: 1;
   background-color: #0f0f0f;
   border: 1px solid #333333;
   border-radius: 8px;
@@ -51,23 +52,12 @@
   font-size: 0.95rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   outline: none;
+  height: 44px;
 }
 
 .input:focus {
   border-color: #8a2be2;
   box-shadow: 0 0 8px rgba(138, 43, 226, 0.4);
-}
-
-.select {
-  background-color: #0f0f0f;
-  border: 1px solid #333333;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  color: #ffffff;
-  font-size: 0.95rem;
-  outline: none;
-  cursor: pointer;
-  height: 44px;
 }
 
 .button {
@@ -85,6 +75,7 @@
   align-items: center;
   justify-content: center;
   min-width: 120px;
+  white-space: nowrap;
 }
 
 .button:hover {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AIAnalysisResponse } from '../utils/api';
 import styles from './AIAnalysisModal.module.css';
-import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image } from 'lucide-react';
+import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image, Info } from 'lucide-react';
 
 interface AIAnalysisModalProps {
   isOpen: boolean;
@@ -147,6 +147,14 @@ export default function AIAnalysisModal({
               <X size={20} />
             </button>
           </div>
+        </div>
+
+        {/* ℹ️ AI分析の生成仕組み説明バナー (100文字以内 / 100件未満フォロー注記付き) */}
+        <div className={styles.infoBanner}>
+          <Info size={15} className={styles.infoBannerIcon} />
+          <p className={styles.infoBannerText}>
+            本レポートは、チャンネルの統計・直近100件の動画(100件未満は全動画)・ドメインナレッジ(RAG)を元に、Gemini AIが競合の強み・弱み・ヒットテーマ・差別化戦略を自動分析して生成しています。
+          </p>
         </div>
 
         {/* モーダルコンテンツ */}

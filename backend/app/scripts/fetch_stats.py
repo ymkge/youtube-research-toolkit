@@ -103,29 +103,38 @@ def run_json_mode():
     print("Running in JSON mode (writing to history files)...")
     ensure_history_dir()
 
-    # GitHub Actionsで実行する場合、SQLiteからではなくSecretsや設定ファイルから対象を特定する、
-    # もしくはローカルSQLiteがある場合はそれから読み込みます。
-    # どちらでも動作するように、SQLiteが存在する場合はDBから読み込み、
-    # DBが無い場合でも環境変数や設定ファイルで動作するフォールバックを想定します。
-    
-    db: Session = SessionLocal()
     channels_to_fetch = []
-    try:
-        channels = db.query(Channel).all()
-        for c in channels:
-            channels_to_fetch.append((c.youtube_channel_id, c.title))
-    except Exception as e:
-        print(f"Database connection skipped or failed: {e}. Reading targets from config or environment...")
-    finally:
-        db.close()
 
-    # DBから取得できなかった場合は環境変数 MONITOR_CHANNELS から読み込む
-    if not channels_to_fetch:
-        env_channels = os.environ.get("MONITOR_CHANNELS", "")
-        if env_channels:
-            for item in env_channels.split(","):
-                if item.strip():
-                    channels_to_fetch.append((item.strip(), item.strip()))
+    # 1. 最優先: backend/data/history/ 配下に存在するすべての *.json ファイル名から全自動検出
+    if os.path.exists(HISTORY_DIR):
+        history_files = [f for f in os.listdir(HISTORY_DIR) if f.endswith(".json")]
+        for fname in history_files:
+            cid = fname.replace(".json", "").strip()
+            if cid:
+                channels_to_fetch.append((cid, cid))
+        if channels_to_fetch:
+            print(f"Target Discovery: Found {len(channels_to_fetch)} channel history files in {HISTORY_DIR}.")
+
+    # 2. フォールバック: SQLite DB から読み込み（新規追加などで歴史ファイルが未生成のチャンネル等）
+    try:
+        db: Session = SessionLocal()
+        db_channels = db.query(Channel).all()
+        existing_ids = {item[0] for item in channels_to_fetch}
+        for c in db_channels:
+            if c.youtube_channel_id not in existing_ids:
+                channels_to_fetch.append((c.youtube_channel_id, c.title))
+        db.close()
+    except Exception as e:
+        print(f"Database read skipped: {e}")
+
+    # 3. フォールバック: 環境変数 MONITOR_CHANNELS があれば追加補填
+    env_channels = os.environ.get("MONITOR_CHANNELS", "")
+    if env_channels:
+        existing_ids = {item[0] for item in channels_to_fetch}
+        for item in env_channels.split(","):
+            cid = item.strip()
+            if cid and cid not in existing_ids:
+                channels_to_fetch.append((cid, cid))
 
     if not channels_to_fetch:
         print("No channels target found for JSON sync.")
@@ -133,6 +142,11 @@ def run_json_mode():
 
     # 常に日本時間ベースで本日の日付文字列を確定
     today_str = datetime.datetime.now(JST).date().isoformat() # YYYY-MM-DD
+
+    print(f"Starting JSON sync for {len(channels_to_fetch)} target channels for date: {today_str}...")
+
+    success_count = 0
+    error_count = 0
 
     for youtube_channel_id, title in channels_to_fetch:
         try:
@@ -168,11 +182,13 @@ def run_json_mode():
                 json.dump(history_data, f, indent=2, ensure_ascii=False)
             
             print(f"-> Successfully saved to {file_path}")
+            success_count += 1
 
         except Exception as e:
+            error_count += 1
             print(f"Error saving JSON stats for {youtube_channel_id}: {e}")
 
-    print("JSON history update completed.")
+    print(f"JSON history update completed. Success: {success_count}, Errors: {error_count}, Total: {len(channels_to_fetch)}.")
 
 def run_sync_json_mode(db_session: Session = None):
     """

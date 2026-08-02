@@ -7,7 +7,8 @@ import ChannelCard from './components/ChannelCard';
 import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
-import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
+import { MilestoneModal } from './components/MilestoneModal';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2, Trophy } from 'lucide-react';
 import styles from './page.module.css';
 
 type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
@@ -35,6 +36,9 @@ export default function Home() {
   const [isAILoading, setIsAILoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // マイルストーン表示モーダル用のステート
+  const [isMilestoneModalOpen, setIsMilestoneModalOpen] = useState(false);
 
   // フィルター条件およびソート条件に基づいてチャンネル配列を動的に計算
   const filteredAndSortedChannels = React.useMemo(() => {
@@ -367,6 +371,17 @@ export default function Home() {
                       </button>
                     </div>
 
+                    {/* マイルストーン達成日一覧表示ボタン */}
+                    <button
+                      onClick={() => setIsMilestoneModalOpen(true)}
+                      className={styles.toggleAllTrendsBtn}
+                      style={{ background: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
+                      title="1K/10K/100K到達日・達成スピード一覧を確認"
+                    >
+                      <Trophy size={14} />
+                      <span>達成マイルストーン</span>
+                    </button>
+
                     {/* トレンドグラフ一括表示・折りたたみボタン */}
                     <button
                       onClick={() => setIsAllTrendExpanded(!isAllTrendExpanded)}
@@ -509,6 +524,12 @@ export default function Home() {
         analysis={aiAnalysis}
         channelTitle={activeAnalysisChannel?.title || ''}
         onReanalyze={handleForceReanalyze}
+      />
+
+      {/* 🏆 マイルストーン達成日一覧モーダル */}
+      <MilestoneModal
+        isOpen={isMilestoneModalOpen}
+        onClose={() => setIsMilestoneModalOpen(false)}
       />
     </div>
   );

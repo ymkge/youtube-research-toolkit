@@ -262,3 +262,43 @@ export async function fetchMissingTodayStats(): Promise<FetchMissingResponse> {
   return res.json();
 }
 
+/**
+ * マイルストーン達成日インターフェース
+ */
+export interface ChannelMilestoneItem {
+  channel_id: number;
+  youtube_channel_id: string;
+  title: string;
+  custom_url?: string | null;
+  thumbnail_url?: string | null;
+  published_at?: string | null;
+  current_subscribers: number;
+  reached_1k_date?: string | null;
+  reached_10k_date?: string | null;
+  reached_100k_date?: string | null;
+  is_1k_before_tracking: boolean;
+  is_10k_before_tracking: boolean;
+  is_100k_before_tracking: boolean;
+  days_to_1k?: number | null;
+  days_1k_to_10k?: number | null;
+  days_10k_to_100k?: number | null;
+}
+
+export interface ChannelMilestonesResponse {
+  total_channels: number;
+  milestones: ChannelMilestoneItem[];
+}
+
+/**
+ * 登録中チャンネルのマイルストーン達成日一覧を取得します。
+ */
+export async function fetchChannelMilestones(): Promise<ChannelMilestonesResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/milestones`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'マイルストーン達成日の取得に失敗しました。');
+  }
+  return res.json();
+}
+
+

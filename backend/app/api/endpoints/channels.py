@@ -7,6 +7,7 @@ from app.models.channel_stats_history import ChannelStatsHistory
 from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest
 from app.schemas.channel_stats_history import ChannelStatsHistoryResponse
 from app.schemas.sync_status import SyncStatusResponse, FetchMissingResponse, MissingChannelItem
+from app.schemas.milestones import ChannelMilestonesResponse, ChannelMilestoneItem
 from app.schemas.ai_analysis import AIAnalysisResponse
 from app.services.ai import ai_service
 from app.services.youtube import youtube_service
@@ -511,4 +512,94 @@ def fetch_missing_today_stats(db: Session = Depends(get_db)):
         fetched_count=len(updated_titles),
         updated_channels=updated_titles
     )
+
+
+@router.get("/milestones", response_model=ChannelMilestonesResponse)
+def get_channel_milestones(db: Session = Depends(get_db)):
+    """
+    登録中の全チャンネルについて、登録者数 1,000人 / 1万人 / 10万人の到達日および到達スピード（経過日数）を算出・返却します。
+    """
+    channels = db.query(Channel).all()
+    milestone_items = []
+
+    for channel in channels:
+        histories = db.query(ChannelStatsHistory).filter(
+            ChannelStatsHistory.channel_id == channel.id
+        ).order_by(ChannelStatsHistory.recorded_at.asc()).all()
+
+        pub_date = channel.published_at.date() if channel.published_at else None
+        pub_date_str = pub_date.isoformat() if pub_date else None
+
+        r1k_date = None
+        r10k_date = None
+        r100k_date = None
+
+        is_1k_before = False
+        is_10k_before = False
+        is_100k_before = False
+
+        if histories:
+            first_h = histories[0]
+            if first_h.subscriber_count >= 1000:
+                is_1k_before = True
+                r1k_date = first_h.recorded_at.isoformat()
+            if first_h.subscriber_count >= 10000:
+                is_10k_before = True
+                r10k_date = first_h.recorded_at.isoformat()
+            if first_h.subscriber_count >= 100000:
+                is_100k_before = True
+                r100k_date = first_h.recorded_at.isoformat()
+
+            for h in histories:
+                rec_str = h.recorded_at.isoformat()
+                if not r1k_date and h.subscriber_count >= 1000:
+                    r1k_date = rec_str
+                if not r10k_date and h.subscriber_count >= 10000:
+                    r10k_date = rec_str
+                if not r100k_date and h.subscriber_count >= 100000:
+                    r100k_date = rec_str
+
+        # 経過日数の計算
+        days_to_1k = None
+        if pub_date and r1k_date and not is_1k_before:
+            d1k = datetime.date.fromisoformat(r1k_date)
+            days_to_1k = (d1k - pub_date).days
+
+        days_1k_to_10k = None
+        if r1k_date and r10k_date and not is_10k_before:
+            d1k = datetime.date.fromisoformat(r1k_date)
+            d10k = datetime.date.fromisoformat(r10k_date)
+            days_1k_to_10k = (d10k - d1k).days
+
+        days_10k_to_100k = None
+        if r10k_date and r100k_date and not is_100k_before:
+            d10k = datetime.date.fromisoformat(r10k_date)
+            d100k = datetime.date.fromisoformat(r100k_date)
+            days_10k_to_100k = (d100k - d10k).days
+
+        item = ChannelMilestoneItem(
+            channel_id=channel.id,
+            youtube_channel_id=channel.youtube_channel_id,
+            title=channel.title,
+            custom_url=channel.custom_url,
+            thumbnail_url=channel.thumbnail_url,
+            published_at=pub_date_str,
+            current_subscribers=channel.subscriber_count,
+            reached_1k_date=r1k_date,
+            reached_10k_date=r10k_date,
+            reached_100k_date=r100k_date,
+            is_1k_before_tracking=is_1k_before,
+            is_10k_before_tracking=is_10k_before,
+            is_100k_before_tracking=is_100k_before,
+            days_to_1k=days_to_1k,
+            days_1k_to_10k=days_1k_to_10k,
+            days_10k_to_100k=days_10k_to_100k,
+        )
+        milestone_items.append(item)
+
+    return ChannelMilestonesResponse(
+        total_channels=len(milestone_items),
+        milestones=milestone_items
+    )
+
 

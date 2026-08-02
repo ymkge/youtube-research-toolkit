@@ -190,14 +190,23 @@ def get_all_channels(db: Session = Depends(get_db)):
         c.average_upload_frequency = avg_freq
         c.latest_video_published_at = latest_upload
 
-        # 前日比登録者増加数の計算 (直近2件の差分)
+        # 前日比登録者増加数 & 総再生数成長率(%)の計算 (直近2件の差分)
         ch_histories = history_map.get(c.id, [])
         if len(ch_histories) >= 2:
             latest_sub = ch_histories[0].subscriber_count or 0
             prev_sub = ch_histories[1].subscriber_count or 0
             c.daily_sub_growth = latest_sub - prev_sub
+
+            latest_view = ch_histories[0].view_count or 0
+            prev_view = ch_histories[1].view_count or 0
+            if prev_view > 0:
+                growth_rate = ((latest_view - prev_view) / prev_view) * 100.0
+                c.daily_view_growth_rate = round(growth_rate, 2)
+            else:
+                c.daily_view_growth_rate = 0.0
         else:
             c.daily_sub_growth = 0
+            c.daily_view_growth_rate = 0.0
 
     return channels
 

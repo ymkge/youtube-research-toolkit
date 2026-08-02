@@ -19,6 +19,7 @@ export interface Channel {
   is_pinned: boolean; // ピン留め状態
   latest_video_published_at: string | null; // 最新動画アップロード日時
   daily_sub_growth?: number; // 前日比登録者増加数
+  daily_view_growth_rate?: number; // 前日比総再生数成長率 (%)
   updated_at: string;
 }
 

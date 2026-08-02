@@ -246,10 +246,22 @@ export default function ChannelCard({
             )}
           </div>
 
-          {channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100 && (
-            <div className={styles.hotBadge} title="前日比で登録者数が100名以上急増中！">
-              <Flame size={12} className={styles.hotIcon} />
-              <span>前日比 +{channel.daily_sub_growth.toLocaleString()}名</span>
+          {/* 急成長シグナルバッジ群 (登録者急増 & 再生数急増) */}
+          {((channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100) ||
+            (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0)) && (
+            <div className={styles.badgeRow}>
+              {channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100 && (
+                <div className={styles.hotBadge} title="前日比で登録者数が100名以上急増中！">
+                  <Flame size={12} className={styles.hotIcon} />
+                  <span>登録者 +{channel.daily_sub_growth.toLocaleString()}名</span>
+                </div>
+              )}
+              {channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0 && (
+                <div className={`${styles.hotBadge} ${styles.viewHotBadge}`} title="前日比で総再生数が2.0%以上急増中！">
+                  <Flame size={12} className={styles.viewHotIcon} />
+                  <span>再生数 +{channel.daily_view_growth_rate.toFixed(1)}%</span>
+                </div>
+              )}
             </div>
           )}
           <div className={styles.metaRow}>

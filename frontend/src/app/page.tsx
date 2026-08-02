@@ -284,6 +284,16 @@ export default function Home() {
             <LineChartIcon size={16} />
             <span>成長率比較分析</span>
           </button>
+
+          {/* 🏆 達成マイルストーンモーダル起動ボタン */}
+          <button
+            className={styles.milestoneTabBtn}
+            onClick={() => setIsMilestoneModalOpen(true)}
+            title="1K/10K/100K到達日・達成スピード一覧を確認"
+          >
+            <Trophy size={16} />
+            <span>達成マイルストーン</span>
+          </button>
         </div>
       </header>
 
@@ -371,49 +381,39 @@ export default function Home() {
                       </button>
                     </div>
 
-                    {/* マイルストーン達成日一覧表示ボタン */}
-                    <button
-                      onClick={() => setIsMilestoneModalOpen(true)}
-                      className={styles.toggleAllTrendsBtn}
-                      style={{ background: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
-                      title="1K/10K/100K到達日・達成スピード一覧を確認"
-                    >
-                      <Trophy size={14} />
-                      <span>達成マイルストーン</span>
-                    </button>
-
-                    {/* トレンドグラフ一括表示・折りたたみボタン */}
-                    <button
-                      onClick={() => setIsAllTrendExpanded(!isAllTrendExpanded)}
-                      className={`${styles.toggleAllTrendsBtn} ${isAllTrendExpanded ? styles.toggleActive : ''}`}
-                      title={isAllTrendExpanded ? "表示中のチャンネルのトレンド表示を一括で閉じる" : "表示中のチャンネルのトレンド表示を一括で展開"}
-                    >
-                      {isAllTrendExpanded ? (
-                        <>
-                          <TrendingDown size={14} />
-                          <span>一括閉じる</span>
-                        </>
-                      ) : (
-                        <>
-                          <TrendingUp size={14} />
-                          <span>トレンド一括表示</span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* トレンドグラフ一括指標選択ドロップダウン */}
-                    <div className={styles.trendMetricSelectWrapper}>
-                      <BarChart2 size={14} className={styles.trendMetricIcon} />
-                      <select
-                        value={trendMetric}
-                        onChange={(e) => setTrendMetric(e.target.value as TrendMetric)}
-                        className={styles.trendMetricSelect}
-                        title="一括表示・切替する統計指標を選択"
+                    {/* トレンドグラフ一括制御（トグルボタン ＆ 指標選択ドロップダウンの一体化グループ） */}
+                    <div className={styles.trendControlGroup}>
+                      <button
+                        onClick={() => setIsAllTrendExpanded(!isAllTrendExpanded)}
+                        className={`${styles.toggleAllTrendsBtn} ${isAllTrendExpanded ? styles.toggleActive : ''}`}
+                        title={isAllTrendExpanded ? "表示中のチャンネルのトレンド表示を一括で閉じる" : "表示中のチャンネルのトレンド表示を一括で展開"}
                       >
-                        <option value="views">🎬 指標: 総再生数</option>
-                        <option value="subscribers">👥 指標: 登録者数</option>
-                        <option value="videos">📹 指標: 動画数</option>
-                      </select>
+                        {isAllTrendExpanded ? (
+                          <>
+                            <TrendingDown size={14} />
+                            <span>一括閉じる</span>
+                          </>
+                        ) : (
+                          <>
+                            <TrendingUp size={14} />
+                            <span>トレンド一括表示</span>
+                          </>
+                        )}
+                      </button>
+
+                      <div className={styles.trendMetricSelectWrapper}>
+                        <BarChart2 size={14} className={styles.trendMetricIcon} />
+                        <select
+                          value={trendMetric}
+                          onChange={(e) => setTrendMetric(e.target.value as TrendMetric)}
+                          className={styles.trendMetricSelect}
+                          title="一括表示・切替する統計指標を選択"
+                        >
+                          <option value="views">🎬 指標: 総再生数</option>
+                          <option value="subscribers">👥 指標: 登録者数</option>
+                          <option value="videos">📹 指標: 動画数</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* ソートコントロール */}

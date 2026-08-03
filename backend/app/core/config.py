@@ -1,9 +1,13 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+default_db_path = os.path.join(backend_dir, "youtube_research.db")
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "YouTube Research Toolkit"
-    DATABASE_URL: str = "sqlite:///./youtube_research.db"
+    DATABASE_URL: str = f"sqlite:///{default_db_path}"
     
     # API Keys
     YOUTUBE_API_KEY: Optional[str] = None

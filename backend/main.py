@@ -195,5 +195,105 @@ def startup_event():
     except Exception as e:
         print(f"Startup warning (JSON Sync failed): {e}")
 
+    # 本日分のデータに未取得が存在する場合の全自動レスキュー補テン
+    try:
+        ensure_today_stats_rescued()
+    except Exception as e:
+        print(f"Startup warning (Rescue failed): {e}")
+
     # バックグラウンドタスクとして非同期起動（ノンブロッキング）
     asyncio.create_task(auto_sync_videos_background())
+
+def ensure_today_stats_rescued():
+    """
+    サーバー起動時、本日(JST)の時系列統計が未取得のチャンネルが存在する場合、
+    自動的にYouTube APIから最新統計を補填取得してSQLite DBおよびJSON履歴の両方に即座に補正保存します。
+    """
+    from app.services.youtube import youtube_service
+    if not youtube_service.is_configured():
+        return
+
+    from app.db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        JST = datetime.timezone(datetime.timedelta(hours=+9))
+        today_date = datetime.datetime.now(JST).date()
+        today_str = today_date.isoformat()
+
+        all_channels = db.query(Channel).all()
+        missing_channels = []
+        for channel in all_channels:
+            hist = db.query(ChannelStatsHistory).filter(
+                ChannelStatsHistory.channel_id == channel.id,
+                ChannelStatsHistory.recorded_at == today_date
+            ).first()
+            if not hist:
+                missing_channels.append(channel)
+
+        if not missing_channels:
+            print("Startup Rescue: All channels already updated for today. No rescue needed.")
+            return
+
+        print(f"Startup Rescue: Found {len(missing_channels)} missing channels for today ({today_str}). Executing auto-rescue fetch...")
+
+        missing_cids = [c.youtube_channel_id for c in missing_channels]
+        batch_stats = youtube_service.get_channels_info_batch(missing_cids)
+
+        import os, json
+        history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "data", "history"))
+        os.makedirs(history_dir, exist_ok=True)
+
+        for channel in missing_channels:
+            stats = batch_stats.get(channel.youtube_channel_id)
+            if not stats:
+                try:
+                    stats = youtube_service.get_channel_info(channel.youtube_channel_id)
+                except Exception as ex:
+                    print(f"Startup Rescue failed for {channel.title}: {ex}")
+                    continue
+
+            sub_count = stats["subscriber_count"]
+            view_count = stats["view_count"]
+            video_count = stats["video_count"]
+
+            channel.subscriber_count = sub_count
+            channel.view_count = view_count
+            channel.video_count = video_count
+
+            new_record = ChannelStatsHistory(
+                channel_id=channel.id,
+                subscriber_count=sub_count,
+                view_count=view_count,
+                video_count=video_count,
+                recorded_at=today_date
+            )
+            db.add(new_record)
+
+            json_file_path = os.path.join(history_dir, f"{channel.youtube_channel_id}.json")
+            history_data = []
+            if os.path.exists(json_file_path):
+                try:
+                    with open(json_file_path, "r", encoding="utf-8") as f:
+                        history_data = json.load(f)
+                except Exception:
+                    history_data = []
+
+            history_data = [item for item in history_data if item.get("date") != today_str]
+            history_data.append({
+                "date": today_str,
+                "subscriber_count": sub_count,
+                "view_count": view_count,
+                "video_count": video_count
+            })
+            history_data.sort(key=lambda x: x["date"])
+
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, indent=2, ensure_ascii=False)
+
+            print(f"Startup Rescue: Successfully rescued and updated '{channel.title}' for {today_str}.")
+
+        db.commit()
+    except Exception as e:
+        print(f"Startup Rescue warning: {e}")
+    finally:
+        db.close()

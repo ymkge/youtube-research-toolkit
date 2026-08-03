@@ -90,6 +90,76 @@ class YouTubeService:
             "uploads_playlist_id": content_details.get("relatedPlaylists", {}).get("uploads")
         }
 
+    def get_channels_info_batch(self, channel_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        複数のチャンネルIDリストから、1リクエストにつき最大50件の一括通信で高速かつ安全にチャンネル情報を取得します。
+        万が一漏れが生じた場合は自動的に個別の get_channel_info でハイブリッドフォールバック取得します。
+        """
+        if not self.is_configured():
+            raise ValueError("YouTube APIキーが設定されていません。backend/.env ファイルを確認してください。")
+
+        if not channel_ids:
+            return {}
+
+        results: Dict[str, Dict[str, Any]] = {}
+        # ユニークなIDリストを作成
+        unique_ids = list(set([cid.strip() for cid in channel_ids if cid and cid.strip()]))
+
+        # YouTube API v3 の上限である50件ごとにチャンク分割
+        chunk_size = 50
+        for i in range(0, len(unique_ids), chunk_size):
+            chunk = unique_ids[i:i + chunk_size]
+            ids_param = ",".join(chunk)
+
+            try:
+                request = self.youtube.channels().list(
+                    part="snippet,statistics,contentDetails",
+                    id=ids_param
+                )
+                response = request.execute()
+
+                for item in response.get("items", []):
+                    cid = item.get("id")
+                    if not cid:
+                        continue
+                    snippet = item.get("snippet", {})
+                    stats = item.get("statistics", {})
+                    content_details = item.get("contentDetails", {})
+
+                    published_at_str = snippet.get("publishedAt")
+                    published_at = None
+                    if published_at_str:
+                        published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
+
+                    results[cid] = {
+                        "youtube_channel_id": cid,
+                        "title": snippet.get("title"),
+                        "description": snippet.get("description"),
+                        "custom_url": snippet.get("customUrl"),
+                        "published_at": published_at,
+                        "subscriber_count": int(stats.get("subscriberCount", 0)),
+                        "view_count": int(stats.get("viewCount", 0)),
+                        "video_count": int(stats.get("videoCount", 0)),
+                        "thumbnail_url": snippet.get("thumbnails", {}).get("high", {}).get("url"),
+                        "country": snippet.get("country"),
+                        "uploads_playlist_id": content_details.get("relatedPlaylists", {}).get("uploads")
+                    }
+            except Exception as ex:
+                print(f"Batch fetch warning for chunk {chunk}: {ex}. Will fallback to individual fetch.")
+
+        # ハイブリッドフォールバック: 一括取得から漏れた ID が存在すれば個別取得
+        missing_ids = [cid for cid in unique_ids if cid not in results]
+        if missing_ids:
+            print(f"Hybrid Fallback: Fetching {len(missing_ids)} missing channels individually...")
+            for cid in missing_ids:
+                try:
+                    info = self.get_channel_info(cid)
+                    results[cid] = info
+                except Exception as ex:
+                    print(f"Individual fallback failed for channel {cid}: {ex}")
+
+        return results
+
     def get_recent_videos(self, uploads_playlist_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """
         アップロード用プレイリストIDから最新の動画リストと各動画の統計詳細を取得します。

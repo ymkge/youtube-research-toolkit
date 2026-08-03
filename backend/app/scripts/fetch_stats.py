@@ -15,6 +15,14 @@ backend_dir = os.path.abspath(os.path.join(current_dir, "..", ".."))
 if backend_dir not in sys.path:
     sys.path.append(backend_dir)
 
+try:
+    import dotenv
+    env_path = os.path.join(backend_dir, ".env")
+    if os.path.exists(env_path):
+        dotenv.load_dotenv(env_path)
+except Exception:
+    pass
+
 from app.db.session import SessionLocal, engine
 from app.models.channel import Channel
 from app.models.channel_stats_history import ChannelStatsHistory
@@ -145,13 +153,20 @@ def run_json_mode():
 
     print(f"Starting JSON sync for {len(channels_to_fetch)} target channels for date: {today_str}...")
 
+    # 1回の通信で全対象チャンネルの情報を一括フェッチ（漏れ時は自動個別フォールバック）
+    target_cids = [cid for cid, title in channels_to_fetch]
+    print(f"Executing Batch API Fetch for {len(target_cids)} channels...")
+    batch_stats_map = youtube_service.get_channels_info_batch(target_cids)
+
     success_count = 0
     error_count = 0
 
     for youtube_channel_id, title in channels_to_fetch:
         try:
-            print(f"Fetching stats for JSON: {title} ({youtube_channel_id})")
-            stats = fetch_channel_api_stats(youtube_channel_id)
+            stats = batch_stats_map.get(youtube_channel_id)
+            if not stats:
+                print(f"Warning: No batch stats retrieved for {youtube_channel_id} ({title}). Trying individual fallback...")
+                stats = fetch_channel_api_stats(youtube_channel_id)
 
             file_path = os.path.join(HISTORY_DIR, f"{youtube_channel_id}.json")
             

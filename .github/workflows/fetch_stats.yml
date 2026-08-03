@@ -2,8 +2,8 @@ name: Daily YouTube Stats Collector
 
 on:
   schedule:
-    # 毎日日本時間午前3時 (UTC 18:00) に自動実行
-    - cron: '0 18 * * *'
+    # 毎日日本時間午前10時 (UTC 01:00) に自動実行 (YouTube集計反映確定後の安全時間帯)
+    - cron: '0 1 * * *'
   workflow_dispatch: # 手動実行も可能にする
 
 jobs:

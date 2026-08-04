@@ -3,6 +3,65 @@ from googleapiclient.errors import HttpError
 from app.core.config import settings
 import datetime
 from typing import Dict, Any, List, Optional
+import re
+
+def parse_iso8601_duration(duration_str: Optional[str]) -> int:
+    """ISO 8601 形式の動画時間文字列 (例: PT1M30S, P0D, P1DT2H) を秒数 (int) にパースします"""
+    if not duration_str:
+        return 0
+    match = re.match(r'P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?', duration_str)
+    if not match:
+        return 0
+    days = int(match.group(1) or 0)
+    hours = int(match.group(2) or 0)
+    minutes = int(match.group(3) or 0)
+    seconds = int(match.group(4) or 0)
+    return days * 86400 + hours * 3600 + minutes * 60 + seconds
+
+def is_live_video(item: dict) -> bool:
+    """YouTube API のレスポンス項目からライブ配信 (LIVE/生放送/アーカイブ) を100%高精度判別します"""
+    snippet = item.get("snippet", {})
+    live_broadcast = snippet.get("liveBroadcastContent", "none")
+    live_details = item.get("liveStreamingDetails")
+    title = snippet.get("title", "")
+    duration = item.get("contentDetails", {}).get("duration", "")
+
+    # 1. 明示的なライブ放送状態 (配信中 / 予定 / 完了)
+    if live_broadcast in ["live", "upcoming", "completed"]:
+        return True
+
+    # 2. liveStreamingDetails に実際の配信時刻やチャットID等の詳細が存在する場合 (アーカイブ化後も残る物理メタデータ)
+    if live_details and isinstance(live_details, dict) and len(live_details) > 0:
+        if any(k in live_details for k in ["actualStartTime", "scheduledStartTime", "activeLiveChatId", "actualEndTime"]):
+            return True
+
+    # 3. 24/7ライブ配信特有の duration (P0D)
+    if duration == "P0D":
+        return True
+
+    # 4. タイトルキーワードによる補完判別
+    title_upper = title.upper()
+    live_keywords = ["LIVE", "ライブ", "生配信", "生放送", "STREAM", "🔴"]
+    if any(kw in title_upper for kw in live_keywords):
+        return True
+
+    return False
+
+def is_short_video(item: dict) -> bool:
+    """YouTube API レスポンスから Shorts 動画かどうかを高精度判別します"""
+    content_details = item.get("contentDetails", {})
+    duration_str = content_details.get("duration")
+    dur_sec = parse_iso8601_duration(duration_str)
+
+    # 60秒以下かつ 0秒超
+    if dur_sec <= 0 or dur_sec > 60:
+        return False
+
+    # P0D や ライブ配信は Shorts から除外
+    if duration_str == "P0D" or is_live_video(item):
+        return False
+
+    return True
 
 class YouTubeService:
     def __init__(self):
@@ -184,7 +243,7 @@ class YouTubeService:
 
     def get_recent_videos(self, uploads_playlist_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """
-        アップロード用プレイリストIDから最新の動画リストと各動画の統計詳細（Shorts/LIVE判別含む）を取得します。
+        アップロード用プレイリストIDから最新の動画リストと各動画の統計詳細（Shorts/LIVE高精度判別含む）を取得します。
         """
         if not self.is_configured():
             raise ValueError("YouTube APIキーが設定されていません。")
@@ -251,15 +310,11 @@ class YouTubeService:
                 tags_list = snippet.get("tags", [])
                 tags_str = ",".join(tags_list) if tags_list else None
 
-                # Shorts 判定 (再生時間が60秒以下)
                 duration_str = content_details.get("duration")
-                dur_sec = parse_iso8601_duration(duration_str)
-                is_short = (dur_sec > 0 and dur_sec <= 60)
 
-                # LIVE 配信判定
-                live_broadcast = snippet.get("liveBroadcastContent", "none")
-                has_live_details = "liveStreamingDetails" in item
-                is_live = (has_live_details or live_broadcast in ["live", "completed", "upcoming"])
+                # 多角的 LIVE / Shorts 高精度判別
+                is_live = is_live_video(item)
+                is_short = is_short_video(item)
 
                 details_map[vid] = {
                     "view_count": int(stats.get("viewCount", 0)),

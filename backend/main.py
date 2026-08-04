@@ -208,6 +208,12 @@ def startup_event():
 
     ensure_db_migrations()
 
+    try:
+        from app.scripts.fix_video_types import run_fix_video_types
+        run_fix_video_types()
+    except Exception as e:
+        print(f"Startup warning (Video Types Backfill failed): {e}")
+
     import asyncio
     from app.scripts.fetch_stats import run_sync_json_mode
     print("Startup: Synchronizing JSON stats history files into SQLite database...")

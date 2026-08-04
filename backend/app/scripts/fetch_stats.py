@@ -153,10 +153,24 @@ def run_json_mode():
 
     print(f"Starting JSON sync for {len(channels_to_fetch)} target channels for date: {today_str}...")
 
-    # 1回の通信で全対象チャンネルの情報を一括フェッチ（漏れ時は自動個別フォールバック）
+    # ハンドル名マップの生成 (二重フォールバック用)
+    channel_handles_map = {
+        "UCa2jEvNQVeCS7Ual-PRSjjQ": "@KokoroMusicRoom",
+        "UCrILWnc9LGNyYOCkBhOLIIQ": "@doctorfocusbgm"
+    }
+    try:
+        db: Session = SessionLocal()
+        for c in db.query(Channel).all():
+            if c.custom_url:
+                channel_handles_map[c.youtube_channel_id] = c.custom_url
+        db.close()
+    except Exception:
+        pass
+
+    # 1回の通信で全対象チャンネルの情報を一括フェッチ (漏れ時は hl=ja 及びハンドル名で二重フォールバック)
     target_cids = [cid for cid, title in channels_to_fetch]
-    print(f"Executing Batch API Fetch for {len(target_cids)} channels...")
-    batch_stats_map = youtube_service.get_channels_info_batch(target_cids)
+    print(f"Executing Batch API Fetch (hl=ja) for {len(target_cids)} channels...")
+    batch_stats_map = youtube_service.get_channels_info_batch(target_cids, channel_handles_map)
 
     success_count = 0
     error_count = 0

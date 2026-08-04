@@ -464,10 +464,23 @@ def fetch_missing_today_stats(db: Session = Depends(get_db)):
             ChannelStatsHistory.recorded_at == today_date
         ).first()
 
-        # 未取得の場合のみ API をフェッチ
+        # 未取得の場合のみ API をフェッチ (ID ➔ ハンドル名二重フォールバック)
         if not existing_history:
             try:
-                info = youtube_service.get_channel_info(channel.youtube_channel_id)
+                info = None
+                try:
+                    info = youtube_service.get_channel_info(channel.youtube_channel_id)
+                except Exception:
+                    if channel.custom_url and channel.custom_url.startswith("@"):
+                        try:
+                            info = youtube_service.get_channel_info(channel.custom_url)
+                        except Exception:
+                            info = None
+
+                if not info:
+                    print(f"Failed to fetch missing stats for {channel.title}")
+                    continue
+
                 sub_count = info["subscriber_count"]
                 view_count = info["view_count"]
                 video_count = info["video_count"]

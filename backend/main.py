@@ -237,7 +237,8 @@ def ensure_today_stats_rescued():
         print(f"Startup Rescue: Found {len(missing_channels)} missing channels for today ({today_str}). Executing auto-rescue fetch...")
 
         missing_cids = [c.youtube_channel_id for c in missing_channels]
-        batch_stats = youtube_service.get_channels_info_batch(missing_cids)
+        channel_handles_map = {c.youtube_channel_id: c.custom_url for c in missing_channels if c.custom_url}
+        batch_stats = youtube_service.get_channels_info_batch(missing_cids, channel_handles_map)
 
         import os, json
         history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "data", "history"))
@@ -249,8 +250,17 @@ def ensure_today_stats_rescued():
                 try:
                     stats = youtube_service.get_channel_info(channel.youtube_channel_id)
                 except Exception as ex:
-                    print(f"Startup Rescue failed for {channel.title}: {ex}")
-                    continue
+                    if channel.custom_url and channel.custom_url.startswith("@"):
+                        try:
+                            stats = youtube_service.get_channel_info(channel.custom_url)
+                        except Exception:
+                            stats = None
+                    else:
+                        stats = None
+
+            if not stats:
+                print(f"Startup Rescue failed for {channel.title}")
+                continue
 
             sub_count = stats["subscriber_count"]
             view_count = stats["view_count"]

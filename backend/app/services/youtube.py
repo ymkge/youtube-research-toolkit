@@ -32,10 +32,11 @@ class YouTubeService:
         # ハンドル指定の場合
         if identifier.startswith("@"):
             try:
-                # API v3 は forHandle をサポートしています
+                # API v3 は forHandle をサポートしています (hl=ja を明示)
                 request = self.youtube.channels().list(
                     part="snippet,statistics,contentDetails",
-                    forHandle=identifier
+                    forHandle=identifier,
+                    hl="ja"
                 )
                 response = request.execute()
             except HttpError:
@@ -44,7 +45,8 @@ class YouTubeService:
                     part="snippet",
                     q=identifier,
                     type="channel",
-                    maxResults=1
+                    maxResults=1,
+                    hl="ja"
                 )
                 search_response = request.execute()
                 items = search_response.get("items", [])
@@ -53,10 +55,11 @@ class YouTubeService:
                 channel_id = items[0]["snippet"]["channelId"]
                 return self.get_channel_info(channel_id)
         else:
-            # チャンネルID指定の場合
+            # チャンネルID指定の場合 (hl=ja を明示)
             request = self.youtube.channels().list(
                 part="snippet,statistics,contentDetails",
-                id=identifier
+                id=identifier,
+                hl="ja"
             )
             response = request.execute()
 
@@ -90,10 +93,10 @@ class YouTubeService:
             "uploads_playlist_id": content_details.get("relatedPlaylists", {}).get("uploads")
         }
 
-    def get_channels_info_batch(self, channel_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    def get_channels_info_batch(self, channel_ids: List[str], channel_handles_map: Optional[Dict[str, str]] = None) -> Dict[str, Dict[str, Any]]:
         """
-        複数のチャンネルIDリストから、1リクエストにつき最大50件の一括通信で高速かつ安全にチャンネル情報を取得します。
-        万が一漏れが生じた場合は自動的に個別の get_channel_info でハイブリッドフォールバック取得します。
+        複数のチャンネルIDリストから、1リクエストにつき最大50件の一括通信(hl=ja)で高速かつ安全にチャンネル情報を取得します。
+        万が一漏れが生じた場合は自動的に個別の ID 取得 ➔ ハンドル名取得の二重フォールバックを実行します。
         """
         if not self.is_configured():
             raise ValueError("YouTube APIキーが設定されていません。backend/.env ファイルを確認してください。")
@@ -114,7 +117,8 @@ class YouTubeService:
             try:
                 request = self.youtube.channels().list(
                     part="snippet,statistics,contentDetails",
-                    id=ids_param
+                    id=ids_param,
+                    hl="ja"
                 )
                 response = request.execute()
 
@@ -147,16 +151,34 @@ class YouTubeService:
             except Exception as ex:
                 print(f"Batch fetch warning for chunk {chunk}: {ex}. Will fallback to individual fetch.")
 
-        # ハイブリッドフォールバック: 一括取得から漏れた ID が存在すれば個別取得
+        # 二重フォールバック機構:
+        # 1. チャンネルID単体で個別取得
+        # 2. なお失敗した場合はハンドル名 (@...) 経由で再フェッチ
         missing_ids = [cid for cid in unique_ids if cid not in results]
         if missing_ids:
-            print(f"Hybrid Fallback: Fetching {len(missing_ids)} missing channels individually...")
+            print(f"Hybrid Fallback: Fetching {len(missing_ids)} missing channels individually/via handle...")
             for cid in missing_ids:
+                info = None
+                # 1. ID単体で試行
                 try:
                     info = self.get_channel_info(cid)
-                    results[cid] = info
                 except Exception as ex:
-                    print(f"Individual fallback failed for channel {cid}: {ex}")
+                    print(f"Individual ID fallback failed for channel {cid}: {ex}")
+
+                # 2. ID単体が失敗し、かつハンドル名がマップにあれば forHandle で再試行
+                if not info and channel_handles_map and cid in channel_handles_map:
+                    handle = channel_handles_map[cid]
+                    if handle and handle.startswith("@"):
+                        try:
+                            print(f"Trying handle fallback for {cid} with handle '{handle}'...")
+                            info = self.get_channel_info(handle)
+                        except Exception as ex:
+                            print(f"Handle fallback failed for handle {handle}: {ex}")
+
+                if info:
+                    results[cid] = info
+                else:
+                    print(f"CRITICAL WARNING: All fallback attempts failed for channel {cid}")
 
         return results
 

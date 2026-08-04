@@ -184,7 +184,7 @@ class YouTubeService:
 
     def get_recent_videos(self, uploads_playlist_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """
-        アップロード用プレイリストIDから最新の動画リストと各動画の統計詳細を取得します。
+        アップロード用プレイリストIDから最新の動画リストと各動画の統計詳細（Shorts/LIVE判別含む）を取得します。
         """
         if not self.is_configured():
             raise ValueError("YouTube APIキーが設定されていません。")
@@ -227,7 +227,7 @@ class YouTubeService:
         if not videos:
             return []
 
-        # 各動画の統計情報を一括取得 (50件ごと)
+        # 各動画の統計情報および Shorts / LIVE フラグを一括取得 (50件ごと)
         video_ids = [v["youtube_video_id"] for v in videos]
         chunk_size = 50
         details_map = {}
@@ -235,8 +235,9 @@ class YouTubeService:
         for i in range(0, len(video_ids), chunk_size):
             chunk = video_ids[i:i + chunk_size]
             request = self.youtube.videos().list(
-                part="statistics,contentDetails,snippet",
-                id=",".join(chunk)
+                part="statistics,contentDetails,snippet,liveStreamingDetails",
+                id=",".join(chunk),
+                hl="ja"
             )
             response = request.execute()
 
@@ -250,13 +251,25 @@ class YouTubeService:
                 tags_list = snippet.get("tags", [])
                 tags_str = ",".join(tags_list) if tags_list else None
 
+                # Shorts 判定 (再生時間が60秒以下)
+                duration_str = content_details.get("duration")
+                dur_sec = parse_iso8601_duration(duration_str)
+                is_short = (dur_sec > 0 and dur_sec <= 60)
+
+                # LIVE 配信判定
+                live_broadcast = snippet.get("liveBroadcastContent", "none")
+                has_live_details = "liveStreamingDetails" in item
+                is_live = (has_live_details or live_broadcast in ["live", "completed", "upcoming"])
+
                 details_map[vid] = {
                     "view_count": int(stats.get("viewCount", 0)),
                     "like_count": int(stats.get("likeCount", 0)) if "likeCount" in stats else None,
                     "comment_count": int(stats.get("commentCount", 0)) if "commentCount" in stats else None,
-                    "duration": content_details.get("duration"),
+                    "duration": duration_str,
                     "tags": tags_str,
-                    "category_id": snippet.get("categoryId")
+                    "category_id": snippet.get("categoryId"),
+                    "is_short": is_short,
+                    "is_live": is_live
                 }
 
         # 元の動画リストに統計情報をマージ

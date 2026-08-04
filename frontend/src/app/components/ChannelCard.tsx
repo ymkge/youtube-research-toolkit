@@ -307,6 +307,43 @@ export default function ChannelCard({
         </div>
       </div>
 
+      {/* 投稿フォーマット比率可視化エリア (Shorts / LIVE / 通常動画) */}
+      {(channel.short_ratio !== undefined || channel.live_ratio !== undefined) && (
+        <div 
+          className={styles.formatRatioSection} 
+          title={`直近動画内訳: Shorts ${channel.short_video_count || 0}本 (${channel.short_ratio || 0}%) / LIVE ${channel.live_stream_count || 0}回 (${channel.live_ratio || 0}%) / 通常 ${channel.regular_video_count || 0}本`}
+        >
+          <div className={styles.formatRatioHeader}>
+            <span className={styles.formatRatioTitle}>動画タイプ内訳</span>
+            <div className={styles.formatRatioBadges}>
+              {(channel.short_video_count || 0) > 0 && (
+                <span className={styles.shortBadge} title={`Shorts: ${channel.short_video_count}本`}>🩳 Shorts {channel.short_ratio}%</span>
+              )}
+              {(channel.live_stream_count || 0) > 0 && (
+                <span className={styles.liveBadge} title={`LIVE: ${channel.live_stream_count}回`}>🔴 LIVE {channel.live_ratio}%</span>
+              )}
+              <span className={styles.regularBadge} title={`通常動画: ${channel.regular_video_count || 0}本`}>
+                🎬 通常 {Math.max(0, 100 - (channel.short_ratio || 0) - (channel.live_ratio || 0)).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+          <div className={styles.formatProgressBar}>
+            <div 
+              className={styles.shortBarSegment} 
+              style={{ width: `${channel.short_ratio || 0}%` }}
+            />
+            <div 
+              className={styles.liveBarSegment} 
+              style={{ width: `${channel.live_ratio || 0}%` }}
+            />
+            <div 
+              className={styles.regularBarSegment} 
+              style={{ width: `${Math.max(0, 100 - (channel.short_ratio || 0) - (channel.live_ratio || 0))}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className={styles.stats}>
         <div className={styles.statItem} title="チャンネル登録者数">
           <Users className={styles.icon} size={16} />

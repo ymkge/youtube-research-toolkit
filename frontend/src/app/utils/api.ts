@@ -20,6 +20,11 @@ export interface Channel {
   latest_video_published_at: string | null; // 最新動画アップロード日時
   daily_sub_growth?: number; // 前日比登録者増加数
   daily_view_growth_rate?: number; // 前日比総再生数成長率 (%)
+  short_video_count?: number; // Shorts動画本数
+  live_stream_count?: number; // LIVE配信本数
+  regular_video_count?: number; // 通常動画本数
+  short_ratio?: number; // Shorts割合 (%)
+  live_ratio?: number; // LIVE割合 (%)
   updated_at: string;
 }
 

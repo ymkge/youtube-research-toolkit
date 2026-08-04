@@ -35,19 +35,36 @@ def parse_iso8601_duration(duration_str: str) -> int:
 
 def calculate_channel_metrics(db: Session, channel_id: int):
     """
-    チャンネルに紐づく動画データから「平均動画時間」「平均再生数」「平均投稿頻度(週単位)」「最新投稿日時」を算出します。
+    チャンネルに紐づく動画データから「平均動画時間」「平均再生数」「平均投稿頻度(週単位)」「最新投稿日時」
+    および「Shorts本数」「LIVE本数」「通常動画本数」「Shorts割合」「LIVE割合」を算出します。
     """
     videos = db.query(Video).filter(Video.channel_id == channel_id).all()
     if not videos:
-        return None, None, None, None
+        return None, None, None, None, 0, 0, 0, 0.0, 0.0
 
-    # 1. 平均動画時間
+    # 1. 平均動画時間 ＆ フォーマット分類 (Shorts / LIVE / 通常動画)
     total_seconds = 0
     duration_count = 0
+    short_count = 0
+    live_count = 0
+    regular_count = 0
+
     for v in videos:
-        if v.duration:
-            total_seconds += parse_iso8601_duration(v.duration)
+        dur_sec = parse_iso8601_duration(v.duration) if v.duration else 0
+        if dur_sec > 0:
+            total_seconds += dur_sec
             duration_count += 1
+
+        is_short = getattr(v, "is_short", False) or (dur_sec > 0 and dur_sec <= 60)
+        is_live = getattr(v, "is_live", False)
+
+        if is_short:
+            short_count += 1
+        elif is_live:
+            live_count += 1
+        else:
+            regular_count += 1
+
     avg_duration = total_seconds / duration_count if duration_count > 0 else None
 
     # 2. 1動画あたりの平均視聴回数 (動画平均再生数)
@@ -68,7 +85,11 @@ def calculate_channel_metrics(db: Session, channel_id: int):
     else:
         avg_frequency = 0.0
 
-    return avg_duration, avg_views, avg_frequency, latest_upload
+    total_v = len(videos)
+    short_ratio = round((short_count / total_v) * 100.0, 1) if total_v > 0 else 0.0
+    live_ratio = round((live_count / total_v) * 100.0, 1) if total_v > 0 else 0.0
+
+    return avg_duration, avg_views, avg_frequency, latest_upload, short_count, live_count, regular_count, short_ratio, live_ratio
 
 def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str, import_limit: int = 100):
     """
@@ -96,7 +117,7 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
         db.flush()
 
     # 統計情報の算出と親テーブルへの保存
-    avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, short_cnt, live_cnt, reg_cnt, short_rat, live_rat = calculate_channel_metrics(db, channel.id)
     channel.average_video_duration = avg_duration
     channel.average_views_per_video = avg_views
     channel.average_upload_frequency = avg_freq
@@ -120,49 +141,43 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
         Channel.youtube_channel_id == api_data["youtube_channel_id"]
     ).first()
 
-    is_new = True
     # 動画同期に必要なアップロードプレイリストIDを退避し、データ辞書から削除
     uploads_playlist_id = api_data.pop("uploads_playlist_id")
 
     if db_channel:
-        is_new = False
         # すでに登録済みの場合は最新データで更新
         for key, value in api_data.items():
             setattr(db_channel, key, value)
         db_channel.updated_at = datetime.datetime.utcnow()
-    else:
-        # 新規登録時に最大 sort_order + 1 を設定して最後尾に追加
-        max_order = db.query(Channel).order_by(Channel.sort_order.desc()).first()
-        new_order = (max_order.sort_order + 1) if max_order else 0
-        db_channel = Channel(**api_data, sort_order=new_order)
-        db.add(db_channel)
-        db.flush()  # DB上のIDを確定させる
-
-    # 3. チャンネルの最新動画を同期
-    if uploads_playlist_id:
-        try:
-            sync_channel_videos(db, db_channel, uploads_playlist_id, payload.import_limit)
-        except Exception as e:
-            # 動画取得でエラーが発生した場合、それまでのチャンネル追加はコミットしつつ一部エラーを通知
-            db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_206_PARTIAL_CONTENT,
-                detail=f"チャンネル情報は登録されましたが、動画の同期に失敗しました: {str(e)}"
-            )
-
-    db.commit()
-    db.refresh(db_channel)
-    
-    # 重複更新された場合はステータスコードを 200 OK に変更
-    if not is_new:
+        channel = db_channel
         response.status_code = status.HTTP_200_OK
+    else:
+        # 新規作成
+        channel = Channel(**api_data)
+        db.add(channel)
 
-    return db_channel
+    db.flush()  # ID採番のためflush
+
+    # 3. 直近の動画データを同期してメトリクスを計算
+    sync_channel_videos(db, channel, uploads_playlist_id, import_limit=payload.import_limit)
+    db.refresh(channel)
+
+    # レスポンスオブジェクトの返却
+    avg_duration, avg_views, avg_freq, latest_upload, short_cnt, live_cnt, reg_cnt, short_rat, live_rat = calculate_channel_metrics(db, channel.id)
+    res = ChannelResponse.model_validate(channel)
+    res.short_video_count = short_cnt
+    res.live_stream_count = live_cnt
+    res.regular_video_count = reg_cnt
+    res.short_ratio = short_rat
+    res.live_ratio = live_rat
+    return res
 
 @router.get("/", response_model=List[ChannelResponse])
 def get_all_channels(db: Session = Depends(get_db)):
-    # ピン留め最優先、その後 sort_order 順
-    channels = db.query(Channel).order_by(Channel.is_pinned.desc(), Channel.sort_order.asc()).all()
+    """
+    全競合チャンネルをソート順に従って取得し、動画統計メトリクスを動的に計算して返却します。
+    """
+    channels = db.query(Channel).order_by(Channel.is_pinned.desc(), Channel.sort_order.asc(), Channel.id.asc()).all()
     if not channels:
         return []
 
@@ -183,32 +198,40 @@ def get_all_channels(db: Session = Depends(get_db)):
             history_map[h.channel_id] = []
         history_map[h.channel_id].append(h)
 
+    res_list = []
     for c in channels:
-        avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, c.id)
-        c.average_video_duration = avg_duration
-        c.average_views_per_video = avg_views
-        c.average_upload_frequency = avg_freq
-        c.latest_video_published_at = latest_upload
+        avg_dur, avg_v, avg_f, latest_u, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, c.id)
+        c.average_video_duration = avg_dur
+        c.average_views_per_video = avg_v
+        c.average_upload_frequency = avg_f
+        c.latest_video_published_at = latest_u
 
         # 前日比登録者増加数 & 総再生数成長率(%)の計算 (直近2件の差分)
         ch_histories = history_map.get(c.id, [])
+        sub_growth = 0
+        view_growth_rate = 0.0
         if len(ch_histories) >= 2:
             latest_sub = ch_histories[0].subscriber_count or 0
             prev_sub = ch_histories[1].subscriber_count or 0
-            c.daily_sub_growth = latest_sub - prev_sub
+            sub_growth = latest_sub - prev_sub
 
             latest_view = ch_histories[0].view_count or 0
             prev_view = ch_histories[1].view_count or 0
             if prev_view > 0:
                 growth_rate = ((latest_view - prev_view) / prev_view) * 100.0
-                c.daily_view_growth_rate = round(growth_rate, 2)
-            else:
-                c.daily_view_growth_rate = 0.0
-        else:
-            c.daily_sub_growth = 0
-            c.daily_view_growth_rate = 0.0
+                view_growth_rate = round(growth_rate, 2)
 
-    return channels
+        item_res = ChannelResponse.model_validate(c)
+        item_res.daily_sub_growth = sub_growth
+        item_res.daily_view_growth_rate = view_growth_rate
+        item_res.short_video_count = s_cnt
+        item_res.live_stream_count = l_cnt
+        item_res.regular_video_count = r_cnt
+        item_res.short_ratio = s_rat
+        item_res.live_ratio = l_rat
+        res_list.append(item_res)
+
+    return res_list
 
 @router.delete("/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_channel(channel_id: int, db: Session = Depends(get_db)):
@@ -240,12 +263,18 @@ def update_channel_pin(channel_id: int, is_pinned: bool, db: Session = Depends(g
     db.commit()
     db.refresh(db_channel)
     
-    avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, db_channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, db_channel.id)
     db_channel.average_video_duration = avg_duration
     db_channel.average_views_per_video = avg_views
     db_channel.average_upload_frequency = avg_freq
     db_channel.latest_video_published_at = latest_upload
-    return db_channel
+    res = ChannelResponse.model_validate(db_channel)
+    res.short_video_count = s_cnt
+    res.live_stream_count = l_cnt
+    res.regular_video_count = r_cnt
+    res.short_ratio = s_rat
+    res.live_ratio = l_rat
+    return res
 
 @router.put("/sort", status_code=status.HTTP_204_NO_CONTENT)
 def update_channels_sort(payload: ChannelSortRequest, db: Session = Depends(get_db)):
@@ -329,7 +358,7 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
         )
 
     # 5. コンテキストデータの整形
-    avg_duration, avg_views, avg_freq, latest_upload = calculate_channel_metrics(db, db_channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, db_channel.id)
     
     channel_dict = {
         "title": db_channel.title,

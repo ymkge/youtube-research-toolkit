@@ -26,6 +26,11 @@ class ChannelResponse(BaseModel):
     latest_video_published_at: Optional[datetime] = None
     daily_sub_growth: int = 0
     daily_view_growth_rate: float = 0.0
+    short_video_count: int = 0
+    live_stream_count: int = 0
+    regular_video_count: int = 0
+    short_ratio: float = 0.0
+    live_ratio: float = 0.0
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

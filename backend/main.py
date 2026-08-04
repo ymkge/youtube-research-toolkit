@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from sqlalchemy import inspect, text
+import os
 
 from app.db.session import engine, Base, SessionLocal
 from app.api.endpoints.channels import router as channels_router
@@ -175,16 +176,37 @@ async def auto_sync_videos_background():
         db.close()
         print("Auto-Sync: Background video synchronization task completed.")
 
+def ensure_db_migrations():
+    """SQLite DB に新カラム (is_short, is_live) が無ければ自動で追加するマイグレーション関数"""
+    import sqlite3
+    from app.core.config import settings
+    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
+    if os.path.exists(db_path):
+        try:
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            cols = [row[1] for row in c.execute("PRAGMA table_info(videos)").fetchall()]
+            if "is_short" not in cols:
+                c.execute("ALTER TABLE videos ADD COLUMN is_short BOOLEAN DEFAULT 0")
+            if "is_live" not in cols:
+                c.execute("ALTER TABLE videos ADD COLUMN is_live BOOLEAN DEFAULT 0")
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Migration warning: {e}")
+
 @app.on_event("startup")
 def startup_event():
     """
-    サーバー起動時に JSON 履歴ファイル（GitHub Actionsからプッシュされた時系列統計）を SQLite DB にマージします。
+    サーバー起動時に DB マイグレーションと JSON 履歴ファイル（GitHub Actionsからプッシュされた時系列統計）を SQLite DB にマージします。
     また、バックグラウンドで動画データの自動同期タスクを開始します。
     """
     import os
     if os.getenv("TESTING") == "True":
         print("Startup: Running in test mode. Skipping JSON sync and background tasks.")
         return
+
+    ensure_db_migrations()
 
     import asyncio
     from app.scripts.fetch_stats import run_sync_json_mode

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 import datetime
@@ -18,6 +18,8 @@ class Video(Base):
     duration = Column(String, nullable=True)  # ISO 8601 (例: PT15M30S)
     tags = Column(Text, nullable=True)        # カンマ区切りの文字列で保存
     category_id = Column(String, nullable=True)
+    is_short = Column(Boolean, default=False)
+    is_live = Column(Boolean, default=False)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     # チャンネルとの多対1リレーションシップ

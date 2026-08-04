@@ -8,7 +8,7 @@ import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { MilestoneModal } from './components/MilestoneModal';
-import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2, Trophy } from 'lucide-react';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2, Trophy, Flame } from 'lucide-react';
 import styles from './page.module.css';
 
 type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
@@ -26,6 +26,7 @@ export default function Home() {
   // フィルター＆ソート＆トレンド一括表示用ステート
   const [searchQuery, setSearchQuery] = useState('');
   const [rankFilter, setRankFilter] = useState<RankFilter>('ALL');
+  const [isHotFilterActive, setIsHotFilterActive] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<SortKey>('custom');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [isAllTrendExpanded, setIsAllTrendExpanded] = useState(false);
@@ -42,13 +43,19 @@ export default function Home() {
 
   // フィルター条件およびソート条件に基づいてチャンネル配列を動的に計算
   const filteredAndSortedChannels = React.useMemo(() => {
-    // 1. キーワードおよびランク/ピン留めによるフィルタリング
+    // 1. キーワードおよびランク/ピン留め/急成長シグナルによるフィルタリング
     const filtered = channels.filter((channel) => {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const matchTitle = channel.title.toLowerCase().includes(query);
         const matchUrl = channel.custom_url ? channel.custom_url.toLowerCase().includes(query) : false;
         if (!matchTitle && !matchUrl) return false;
+      }
+
+      if (isHotFilterActive) {
+        const isSubHot = (channel as any).daily_sub_growth !== undefined && (channel as any).daily_sub_growth >= 100;
+        const isViewHot = (channel as any).daily_view_growth_rate !== undefined && (channel as any).daily_view_growth_rate >= 2.0;
+        if (!isSubHot && !isViewHot) return false;
       }
 
       const subs = channel.subscriber_count || 0;
@@ -103,11 +110,12 @@ export default function Home() {
 
       return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [channels, searchQuery, rankFilter, sortBy, sortOrder]);
+  }, [channels, searchQuery, rankFilter, isHotFilterActive, sortBy, sortOrder]);
 
   const resetFilters = () => {
     setSearchQuery('');
     setRankFilter('ALL');
+    setIsHotFilterActive(false);
   };
 
   const handleShowAIAnalysis = async (channel: Channel, forceReanalyze: boolean = false) => {
@@ -415,6 +423,16 @@ export default function Home() {
                         </select>
                       </div>
                     </div>
+
+                    {/* 急成長シグナルフィルター (前日比登録者+100名以上 または 前日比再生数+2.0%以上) */}
+                    <button
+                      className={`${styles.hotFilterToggle} ${isHotFilterActive ? styles.hotFilterActive : ''}`}
+                      onClick={() => setIsHotFilterActive(!isHotFilterActive)}
+                      title="前日比登録者+100名以上、または前日比総再生数+2.0%以上の急成長シグナルが出ているチャンネルのみを絞り込み"
+                    >
+                      <Flame size={14} className={styles.hotFilterIcon} />
+                      <span>急成長のみ</span>
+                    </button>
 
                     {/* ソートコントロール */}
                     <div className={styles.sortControlGroup}>

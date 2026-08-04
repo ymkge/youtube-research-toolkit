@@ -301,6 +301,44 @@
   box-shadow: 0 0 10px rgba(0, 255, 127, 0.2);
 }
 
+.hotFilterToggle {
+  background-color: #1a1a1a;
+  color: #888888;
+  border: 1px solid #2d2d2d;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.hotFilterToggle:hover {
+  background-color: rgba(255, 100, 0, 0.1);
+  border-color: rgba(255, 100, 0, 0.4);
+  color: #ff8844;
+}
+
+.hotFilterActive {
+  background: linear-gradient(135deg, rgba(255, 69, 0, 0.25) 0%, rgba(236, 72, 153, 0.2) 100%);
+  border: 1px solid rgba(255, 100, 0, 0.6);
+  color: #ff8844;
+  box-shadow: 0 0 12px rgba(255, 69, 0, 0.3);
+}
+
+.hotFilterIcon {
+  color: #888888;
+  transition: transform 0.2s ease;
+}
+
+.hotFilterActive .hotFilterIcon {
+  color: #ff4500;
+}
+
 .sortControlGroup {
   display: flex;
   align-items: center;

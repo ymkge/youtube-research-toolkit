@@ -145,6 +145,39 @@ npm run dev
 
 ---
 
+## 🔄 データ取得・自動レスキュー構成アーキテクチャ
+
+本システムにおける「日次自動バッチ」「起動時全自動レスキュー」「画面手動取得」のデータフロー全体図です。
+
+```mermaid
+flowchart TD
+    subgraph Remote["1. リモート自動バッチ (GitHub Actions)"]
+        Cron["⏰ 毎日 10:00 JST 起動"] --> GHA_Fetch["fetch_stats.py --json\n(全26チャンネル一括フェッチ)"]
+        GHA_Fetch --> GHA_JSON["backend/data/history/{cid}.json\nへ自動保存"]
+        GHA_JSON --> Git_Push["git commit & push\n(リポジトリへ自動更新)"]
+    end
+
+    subgraph LocalApp["2. ローカルアプリ起動時 (FastAPI 起動)"]
+        User_Start["🚀 uvicorn main:app 起動"] --> Git_Pull["git pull (最新JSONを取得)"]
+        Git_Pull --> Sync_DB["run_sync_json_mode()\nJSON履歴 ➔ SQLite DBへマージ"]
+        Sync_DB --> Rescue_Check{"本日(JST)未取得の\nチャンネルが存在するか？"}
+        
+        Rescue_Check -- "YES (未取得あり)" --> Auto_Rescue["🛡️ ensure_today_stats_rescued()\n(日本国内IPからYouTube API即時レスキュー)"]
+        Auto_Rescue --> Save_Both["SQLite DB ＆ JSON履歴の\n両方に自動補填・保存"]
+        
+        Rescue_Check -- "NO (全件同期済み)" --> Ready["🟢 全件同期完了 (ダッシュボード表示)"]
+        Save_Both --> Ready
+    end
+
+    subgraph Manual["3. 画面UIからの手動フェッチ"]
+        Btn["🔄 「今すぐデータを取得」ボタン"] --> Fetch_All["POST /api/channels/fetch-all-stats"]
+        Fetch_All --> Direct_API["YouTube API 直接フェッチ (日本IP)"]
+        Direct_API --> UI_Save["SQLite DB ＆ JSON履歴を即時更新"]
+    end
+```
+
+---
+
 ## 時系列データの自動収集と同期 (GitHub Actions)
 
 PCが起動していなくても、毎日自動的（日本時間 午前10:00 JST / YouTube日次集計確定後の安全時間帯）に競合チャンネルの数値（登録者、再生数、動画数）を収集・蓄積する仕組みを搭載しています。

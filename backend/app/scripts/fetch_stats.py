@@ -113,7 +113,7 @@ def run_json_mode():
 
     channels_to_fetch = []
 
-    # 1. 最優先: backend/data/history/ 配下に存在するすべての *.json ファイル名から全自動検出
+    # 1. backend/data/history/ 配下に存在する *.json ファイルからチャンネル検出
     if os.path.exists(HISTORY_DIR):
         history_files = [f for f in os.listdir(HISTORY_DIR) if f.endswith(".json")]
         for fname in history_files:
@@ -123,14 +123,14 @@ def run_json_mode():
         if channels_to_fetch:
             print(f"Target Discovery: Found {len(channels_to_fetch)} channel history files in {HISTORY_DIR}.")
 
-    # 2. フォールバック: SQLite DB から読み込み（新規追加などで歴史ファイルが未生成のチャンネル等）
+    # 2. 登録チャンネル全件 (SQLite DB) から漏れなくターゲットへ追加
     try:
         db: Session = SessionLocal()
         db_channels = db.query(Channel).all()
         existing_ids = {item[0] for item in channels_to_fetch}
         for c in db_channels:
             if c.youtube_channel_id not in existing_ids:
-                channels_to_fetch.append((c.youtube_channel_id, c.title))
+                channels_to_fetch.append((c.youtube_channel_id, c.title or c.youtube_channel_id))
         db.close()
     except Exception as e:
         print(f"Database read skipped: {e}")

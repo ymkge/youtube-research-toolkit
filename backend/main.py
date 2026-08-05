@@ -237,6 +237,9 @@ def ensure_today_stats_rescued():
     サーバー起動時、本日(JST)の時系列統計が未取得のチャンネルが存在する場合、
     自動的にYouTube APIから最新統計を補填取得してSQLite DBおよびJSON履歴の両方に即座に補正保存します。
     """
+    import datetime
+    from app.models.channel import Channel
+    from app.models.channel_stats_history import ChannelStatsHistory
     from app.services.youtube import youtube_service
     if not youtube_service.is_configured():
         return

@@ -19,29 +19,36 @@ def parse_iso8601_duration(duration_str: Optional[str]) -> int:
     return days * 86400 + hours * 3600 + minutes * 60 + seconds
 
 def is_live_video(item: dict) -> bool:
-    """YouTube API のレスポンス項目からライブ配信 (LIVE/生放送/アーカイブ) を100%高精度判別します"""
+    """YouTube API のレスポンス項目からライブ配信 (LIVE/生放送/アーカイブ) を100%高精度判別します (プレミア公開動画は除外)"""
     snippet = item.get("snippet", {})
     live_broadcast = snippet.get("liveBroadcastContent", "none")
-    live_details = item.get("liveStreamingDetails")
+    live_details = item.get("liveStreamingDetails") or {}
     title = snippet.get("title", "")
     duration = item.get("contentDetails", {}).get("duration", "")
 
-    # 1. 明示的なライブ放送状態 (配信中 / 予定 / 完了)
-    if live_broadcast in ["live", "upcoming", "completed"]:
+    # 1. 現在配信中 / 配信予定 / 24時間ライブ配信 (duration == "P0D")
+    if duration == "P0D" or live_broadcast in ["live", "upcoming"]:
         return True
 
-    # 2. liveStreamingDetails に実際の配信時刻やチャットID等の詳細が存在する場合 (アーカイブ化後も残る物理メタデータ)
-    if live_details and isinstance(live_details, dict) and len(live_details) > 0:
-        if any(k in live_details for k in ["actualStartTime", "scheduledStartTime", "activeLiveChatId", "actualEndTime"]):
-            return True
-
-    # 3. 24/7ライブ配信特有の duration (P0D)
-    if duration == "P0D":
+    # 2. activeLiveChatId が存在する場合は本物の生配信/アーカイブ
+    if "activeLiveChatId" in live_details:
         return True
 
-    # 4. タイトルキーワードによる補完判別
+    # 3. プレミア公開 (Premiere) の分離除外:
+    # scheduledStartTime が存在し、activeLiveChatId が無い場合は「プレミア公開（通常動画）」
+    if "scheduledStartTime" in live_details and "activeLiveChatId" not in live_details:
+        title_upper = title.upper()
+        live_keywords = ["LIVE", "ライブ", "生配信", "生放送", "🔴"]
+        if not any(kw in title_upper for kw in live_keywords):
+            return False
+
+    # 4. liveBroadcastContent が completed
+    if live_broadcast == "completed":
+        return True
+
+    # 5. タイトルキーワードによる補完判別
     title_upper = title.upper()
-    live_keywords = ["LIVE", "ライブ", "生配信", "生放送", "STREAM", "🔴"]
+    live_keywords = ["LIVE", "ライブ", "生配信", "生放送", "🔴"]
     if any(kw in title_upper for kw in live_keywords):
         return True
 

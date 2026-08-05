@@ -162,6 +162,54 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
     sync_channel_videos(db, channel, uploads_playlist_id, import_limit=payload.import_limit)
     db.refresh(channel)
 
+    # 4. 本日分 (JST) の初期時系列データおよび JSON 履歴を自動生成・保存
+    try:
+        JST = datetime.timezone(datetime.timedelta(hours=+9))
+        today_date = datetime.datetime.now(JST).date()
+        today_str = today_date.isoformat()
+
+        existing_hist = db.query(ChannelStatsHistory).filter(
+            ChannelStatsHistory.channel_id == channel.id,
+            ChannelStatsHistory.recorded_at == today_date
+        ).first()
+
+        if not existing_hist:
+            init_hist = ChannelStatsHistory(
+                channel_id=channel.id,
+                subscriber_count=channel.subscriber_count or 0,
+                view_count=channel.view_count or 0,
+                video_count=channel.video_count or 0,
+                recorded_at=today_date
+            )
+            db.add(init_hist)
+            db.commit()
+
+        import os, json
+        history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "history"))
+        os.makedirs(history_dir, exist_ok=True)
+        json_path = os.path.join(history_dir, f"{channel.youtube_channel_id}.json")
+
+        h_data = []
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    h_data = json.load(f)
+            except Exception:
+                h_data = []
+
+        h_data = [item for item in h_data if item.get("date") != today_str]
+        h_data.append({
+            "date": today_str,
+            "subscriber_count": channel.subscriber_count or 0,
+            "view_count": channel.view_count or 0,
+            "video_count": channel.video_count or 0
+        })
+        h_data.sort(key=lambda x: x["date"])
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(h_data, f, indent=2, ensure_ascii=False)
+    except Exception as ex:
+        print(f"Register channel history init warning: {ex}")
+
     # レスポンスオブジェクトの返却
     avg_duration, avg_views, avg_freq, latest_upload, short_cnt, live_cnt, reg_cnt, short_rat, live_rat = calculate_channel_metrics(db, channel.id)
     res = ChannelResponse.model_validate(channel)

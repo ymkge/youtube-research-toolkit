@@ -82,6 +82,13 @@ export default function ChannelCard({
   const [showChart, setShowChart] = useState(false);
   const [history, setHistory] = useState<ChannelStatsHistory[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+
+  // channel.id が変わった場合は履歴ステートをリセット
+  useEffect(() => {
+    setHistory([]);
+    setIsHistoryLoaded(false);
+  }, [channel.id]);
 
   // 親からの一括開閉フラグ変化を検知して同期
   useEffect(() => {
@@ -90,14 +97,15 @@ export default function ChannelCard({
     }
   }, [isAllTrendExpanded]);
 
-  // showChart が true になった時、未ロードであれば自動的に履歴データをフェッチ
+  // showChart が true になった時、未ロードであれば自動的に履歴データをフェッチ (1回のみ)
   useEffect(() => {
-    if (showChart && history.length === 0 && !isHistoryLoading) {
+    if (showChart && !isHistoryLoaded && !isHistoryLoading) {
       const loadHistory = async () => {
         setIsHistoryLoading(true);
         try {
           const data = await fetchChannelHistory(channel.id);
           setHistory(data);
+          setIsHistoryLoaded(true);
         } catch (err) {
           console.error('統計履歴データのロードに失敗しました:', err);
         } finally {
@@ -106,7 +114,7 @@ export default function ChannelCard({
       };
       loadHistory();
     }
-  }, [showChart, channel.id, history.length, isHistoryLoading]);
+  }, [showChart, channel.id, isHistoryLoaded, isHistoryLoading]);
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();

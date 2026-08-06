@@ -94,7 +94,7 @@ export default function GrowthComparisonView() {
   };
 
   // ランク別およびピン留めのワンタップ一括選択ハンドラー
-  const selectByFilter = (filterType: '100k' | '10k' | '1k' | 'pinned') => {
+  const selectByFilter = (filterType: '100k' | '10k' | '1k' | 'under1k' | 'pinned') => {
     if (!data) return;
     const matchedIds = data.channels
       .filter((c) => c.has_history)
@@ -107,6 +107,8 @@ export default function GrowthComparisonView() {
             return subs >= 10000;
           case '1k':
             return subs >= 1000;
+          case 'under1k':
+            return subs < 1000;
           case 'pinned':
             return !!c.is_pinned;
           default:
@@ -297,6 +299,9 @@ export default function GrowthComparisonView() {
                 </button>
                 <button onClick={() => selectByFilter('1k')} className={styles.quickFilterBtn} title="登録者1,000人以上のチャンネルを全選択">
                   🥈 1千+
+                </button>
+                <button onClick={() => selectByFilter('under1k')} className={styles.quickFilterBtn} title="登録者1,000人未満のチャンネルを全選択">
+                  🥉 1千未満
                 </button>
                 <button onClick={() => selectByFilter('pinned')} className={styles.quickFilterBtn} title="ピン留めされているチャンネルを全選択">
                   📌 ピン留め

@@ -58,22 +58,76 @@
 
 /* カスタムツールチップのスタイル */
 .customTooltip {
-  background-color: #222222;
-  border: 1px solid #333333;
-  border-radius: 6px;
-  padding: 0.4rem 0.6rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  background-color: #1c1c24;
+  border: 1px solid #2e2e3e;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  font-size: 0.75rem;
+  min-width: 155px;
 }
 
 .tooltipDate {
-  margin: 0 0 0.15rem 0;
+  margin: 0 0 0.25rem 0;
   font-size: 0.7rem;
-  color: #888888;
+  color: #aaaaaa;
+  border-bottom: 1px solid #2a2a38;
+  padding-bottom: 0.25rem;
+  font-weight: 600;
 }
 
-.tooltipValue {
-  margin: 0;
-  font-size: 0.75rem;
+.tooltipMainValue {
+  margin: 0.25rem 0 0.35rem 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.tooltipDiffContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-top: 1px dashed #282836;
+  padding-top: 0.35rem;
+}
+
+.tooltipDiffRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+}
+
+.diffLabel {
+  color: #9999aa;
+  font-weight: 500;
+}
+
+.diffBadge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.68rem;
+}
+
+.positive {
+  color: #00ff7f;
+  background-color: rgba(0, 255, 127, 0.12);
+}
+
+.negative {
+  color: #ff4d4d;
+  background-color: rgba(255, 77, 77, 0.12);
+}
+
+.neutral {
+  color: #aaaaaa;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.diffBadgeNone {
+  color: #555566;
+  font-size: 0.7rem;
 }
 
 /* ローディング状態のスタイル */

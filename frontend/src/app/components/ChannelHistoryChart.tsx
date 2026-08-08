@@ -43,6 +43,65 @@ function formatChartDate(dateStr: string): string {
   return dateStr;
 }
 
+interface MetricDiff {
+  diffStr: string;
+  rateStr: string;
+  type: 'positive' | 'negative' | 'neutral' | 'none';
+}
+
+function calcDiff(current: number, baseline: number | null): MetricDiff {
+  if (baseline === null || baseline === undefined) {
+    return { diffStr: '—', rateStr: '', type: 'none' };
+  }
+  const diff = current - baseline;
+  const rate = baseline > 0 ? (diff / baseline) * 100 : 0;
+
+  if (diff > 0) {
+    return {
+      diffStr: `+${formatMetricValue(diff)}`,
+      rateStr: `(+${rate.toFixed(1)}%)`,
+      type: 'positive',
+    };
+  } else if (diff < 0) {
+    return {
+      diffStr: `${formatMetricValue(diff)}`,
+      rateStr: `(${rate.toFixed(1)}%)`,
+      type: 'negative',
+    };
+  } else {
+    return { diffStr: '±0', rateStr: '(0.0%)', type: 'neutral' };
+  }
+}
+
+// 実日付 (recorded_at) ベースの過去データ最近傍検索関数
+function findNearestHistoryItem(history: ChannelStatsHistory[], currentIndex: number, targetDaysAgo: number): ChannelStatsHistory | null {
+  if (currentIndex <= 0) return null;
+  const currentItem = history[currentIndex];
+  const currentDate = new Date(currentItem.recorded_at).getTime();
+  const targetTime = currentDate - targetDaysAgo * 86400 * 1000;
+
+  // 許容誤差範囲 (DoD: 1〜3日前 / WoW: 5〜10日前)
+  const minAllowedTime = targetDaysAgo === 1 
+    ? currentDate - 3 * 86400 * 1000 
+    : currentDate - 10 * 86400 * 1000;
+
+  let bestMatch: ChannelStatsHistory | null = null;
+  let minDiff = Infinity;
+
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    const itemDate = new Date(history[i].recorded_at).getTime();
+    if (itemDate < minAllowedTime) break;
+
+    const diff = Math.abs(itemDate - targetTime);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestMatch = history[i];
+    }
+  }
+
+  return bestMatch;
+}
+
 export default function ChannelHistoryChart({ history, isLoading, initialMetric = 'subscribers' }: ChannelHistoryChartProps) {
   const [metric, setMetric] = useState<MetricType>(initialMetric);
 
@@ -52,6 +111,34 @@ export default function ChannelHistoryChart({ history, isLoading, initialMetric 
     }
   }, [initialMetric]);
 
+  // グラフ用データおよび DoD/WoW 事前計算キャッシュ構築 (Hooks は最上部で呼び出す)
+  const chartData = React.useMemo(() => {
+    if (!history || history.length === 0) return [];
+    return history.map((item, index) => {
+      const dodItem = findNearestHistoryItem(history, index, 1);
+      const wowItem = findNearestHistoryItem(history, index, 7);
+
+      return {
+        date: formatChartDate(item.recorded_at),
+        fullDate: item.recorded_at.replace(/-/g, '/'),
+        subscribers: item.subscriber_count,
+        views: item.view_count,
+        videos: item.video_count,
+        dod: {
+          subscribers: calcDiff(item.subscriber_count, dodItem ? dodItem.subscriber_count : null),
+          views: calcDiff(item.view_count, dodItem ? dodItem.view_count : null),
+          videos: calcDiff(item.video_count, dodItem ? dodItem.video_count : null),
+        },
+        wow: {
+          subscribers: calcDiff(item.subscriber_count, wowItem ? wowItem.subscriber_count : null),
+          views: calcDiff(item.view_count, wowItem ? wowItem.view_count : null),
+          videos: calcDiff(item.video_count, wowItem ? wowItem.video_count : null),
+        }
+      };
+    });
+  }, [history]);
+
+  // 全 Hook の評価後に早期リターンを行う
   if (isLoading) {
     return (
       <div className={styles.loadingContainer}>
@@ -71,15 +158,6 @@ export default function ChannelHistoryChart({ history, isLoading, initialMetric 
       </div>
     );
   }
-
-  // グラフ用データの構築
-  const chartData = history.map((item) => ({
-    date: formatChartDate(item.recorded_at),
-    fullDate: item.recorded_at.replace(/-/g, '/'),
-    subscribers: item.subscriber_count,
-    views: item.view_count,
-    videos: item.video_count
-  }));
 
   // 現在選択されているメトリクスに応じたデザイン設定
   const metricConfigs = {
@@ -115,12 +193,37 @@ export default function ChannelHistoryChart({ history, isLoading, initialMetric 
   const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      const metricDod: MetricDiff = data.dod[metric];
+      const metricWow: MetricDiff = data.wow[metric];
+
       return (
         <div className={styles.customTooltip}>
           <p className={styles.tooltipDate}>{data.fullDate}</p>
-          <p className={styles.tooltipValue} style={{ color: config.color }}>
+          <div className={styles.tooltipMainValue} style={{ color: config.color }}>
             {config.label}: <strong>{formatMetricValue(payload[0].value as number)}</strong>
-          </p>
+          </div>
+          <div className={styles.tooltipDiffContainer}>
+            <div className={styles.tooltipDiffRow}>
+              <span className={styles.diffLabel}>前日比:</span>
+              {metricDod.type === 'none' ? (
+                <span className={styles.diffBadgeNone}>—</span>
+              ) : (
+                <span className={`${styles.diffBadge} ${styles[metricDod.type]}`}>
+                  {metricDod.diffStr} {metricDod.rateStr}
+                </span>
+              )}
+            </div>
+            <div className={styles.tooltipDiffRow}>
+              <span className={styles.diffLabel}>前週比:</span>
+              {metricWow.type === 'none' ? (
+                <span className={styles.diffBadgeNone}>—</span>
+              ) : (
+                <span className={`${styles.diffBadge} ${styles[metricWow.type]}`}>
+                  {metricWow.diffStr} {metricWow.rateStr}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       );
     }

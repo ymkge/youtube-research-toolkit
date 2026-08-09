@@ -3,13 +3,14 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 from app.models.channel import Channel
 from app.models.video import Video
-from app.schemas.ai_analysis import AIAnalysisResponse
+from app.schemas.ai_analysis import AIAnalysisResponse, FeaturedVideoInfo
 from app.core.config import settings
 
 # モック用のダミーAIレスポンス
 MOCK_AI_RESPONSE = {
     "channel_summary": "テスト用の要約文です。150文字以内の制約があります。",
     "recent_growth_analysis": None,
+    "featured_videos": [],
     "strengths": ["強み1です", "強み2です"],
     "weaknesses": ["弱み1です", "弱み2です"],
     "top_performing_themes": [
@@ -195,3 +196,55 @@ def test_analyze_channel_is_featured(mock_ai, client, db):
     # 呼び出し時の第3引数 (is_featured) が True であることを検証
     call_kwargs = mock_ai.analyze_channel_positioning.call_args
     assert call_kwargs[1].get("is_featured") is True
+
+@patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_is_featured_with_video_links(mock_ai, client, db):
+    """
+    注目フラグチャンネルの分析時、最注目動画のURLおよびIDが
+    正確にレスポンスへ自動付与されているかを検証。
+    """
+    c = Channel(
+        youtube_channel_id="UC_FEATURED_URL_TEST",
+        title="Featured URL Channel",
+        is_pinned=True,
+        sort_order=0
+    )
+    db.add(c)
+    db.flush()
+    
+    v1 = Video(
+        channel_id=c.id,
+        youtube_video_id="spike_vid_01",
+        title="1.5倍バズ動画",
+        view_count=15000,
+        published_at=datetime.utcnow() - timedelta(days=5)
+    )
+    db.add(v1)
+    db.commit()
+
+    mock_ai.is_configured.return_value = True
+    
+    featured_mock_resp = AIAnalysisResponse(
+        **{**MOCK_AI_RESPONSE, "recent_growth_analysis": "直近で急成長しています。"},
+        generated_at=datetime.utcnow()
+    )
+    featured_mock_resp.featured_videos = [
+        FeaturedVideoInfo(
+            youtube_video_id="spike_vid_01",
+            title="1.5倍バズ動画",
+            url="https://www.youtube.com/watch?v=spike_vid_01",
+            view_count=15000,
+            spike_ratio=1.5,
+            thumbnail_url=None
+        )
+    ]
+    mock_ai.analyze_channel_positioning.return_value = featured_mock_resp
+
+    response = client.post(f"/api/channels/{c.id}/analyze?force=true")
+    assert response.status_code == 200
+    res_data = response.json()
+    
+    assert "featured_videos" in res_data
+    assert len(res_data["featured_videos"]) == 1
+    assert res_data["featured_videos"][0]["youtube_video_id"] == "spike_vid_01"
+    assert res_data["featured_videos"][0]["url"] == "https://www.youtube.com/watch?v=spike_vid_01"

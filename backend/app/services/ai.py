@@ -4,7 +4,7 @@ import os
 from google import genai
 from google.genai import types
 from app.core.config import settings
-from app.schemas.ai_analysis import AIAnalysisResponse
+from app.schemas.ai_analysis import AIAnalysisResponse, FeaturedVideoInfo
 
 def load_domain_knowledge() -> str:
     """
@@ -203,7 +203,25 @@ Pydanticのレスポンススキーマ（response_schema）で定義されてい
         # 4. JSONレスポンスのパースとスキーマオブジェクト化
         result_json = json.loads(response.text)
         
-        # Pydantic スキーマでパースして返却
-        return AIAnalysisResponse(**result_json)
+        # 最注目・スパイク動画オブジェクトの構築と自動注入
+        featured_video_objects = []
+        if is_featured and recent_spikes:
+            for ratio_val, _, s_video in recent_spikes[:3]:
+                v_id = s_video.get("youtube_video_id") or ""
+                v_url = f"https://www.youtube.com/watch?v={v_id}" if v_id else ""
+                featured_video_objects.append(
+                    FeaturedVideoInfo(
+                        youtube_video_id=v_id,
+                        title=s_video.get("title", ""),
+                        url=v_url,
+                        view_count=s_video.get("view_count", 0),
+                        spike_ratio=round(ratio_val, 1),
+                        thumbnail_url=s_video.get("thumbnail_url")
+                    )
+                )
+
+        analysis_obj = AIAnalysisResponse(**result_json)
+        analysis_obj.featured_videos = featured_video_objects
+        return analysis_obj
 
 ai_service = AIService()

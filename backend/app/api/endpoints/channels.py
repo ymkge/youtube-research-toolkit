@@ -423,6 +423,7 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
 
     videos_list = [
         {
+            "youtube_video_id": v.youtube_video_id,
             "title": v.title,
             "published_at": v.published_at,
             "view_count": v.view_count,

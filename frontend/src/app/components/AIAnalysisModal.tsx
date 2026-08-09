@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AIAnalysisResponse } from '../utils/api';
 import styles from './AIAnalysisModal.module.css';
-import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image, Info, Flame } from 'lucide-react';
+import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image, Info, Flame, ExternalLink, Play } from 'lucide-react';
 
 interface AIAnalysisModalProps {
   isOpen: boolean;
@@ -208,6 +208,42 @@ export default function AIAnalysisModal({
                     <span>🚀 注目チャンネル特別分析: 直近の再生数急増 ＆ サムネイル勝因分析</span>
                   </h4>
                   <p>{analysis.recent_growth_analysis}</p>
+
+                  {/* 🎥 最注目・スパイク動画のダイレクトURLリンク群 */}
+                  {analysis.featured_videos && analysis.featured_videos.length > 0 && (
+                    <div className={styles.featuredVideosSection}>
+                      <div className={styles.featuredVideosHeader}>
+                        <Play size={13} className={styles.playIcon} />
+                        <span>分析の根拠となった直近の最注目動画 (クリックでYouTube再生)</span>
+                      </div>
+                      <div className={styles.featuredVideosList}>
+                        {analysis.featured_videos.map((video, idx) => (
+                          <a
+                            key={video.youtube_video_id || idx}
+                            href={video.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${styles.featuredVideoCard} ${idx === 0 ? styles.primaryFeaturedCard : ''}`}
+                            title={`YouTubeで「${video.title}」を開く`}
+                          >
+                            <span className={styles.featuredTag}>
+                              {idx === 0 ? '🔥 No.1 最注目' : `注目 #${idx + 1}`}
+                            </span>
+                            <div className={styles.featuredContent}>
+                              <span className={styles.featuredTitle}>{video.title}</span>
+                              <span className={styles.featuredMeta}>
+                                再生数: {video.view_count.toLocaleString()}回 (平均の{video.spike_ratio}倍)
+                              </span>
+                            </div>
+                            <div className={styles.featuredLinkBtn}>
+                              <span>動画を視聴</span>
+                              <ExternalLink size={13} />
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

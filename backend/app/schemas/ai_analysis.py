@@ -13,6 +13,14 @@ class ThemePerformance(BaseModel):
         description="このテーマを代表する動画タイトル"
     )
 
+class FeaturedVideoInfo(BaseModel):
+    youtube_video_id: str = Field(description="YouTube動画のID")
+    title: str = Field(description="動画タイトル")
+    url: str = Field(description="YouTube動画の絶対URL")
+    view_count: int = Field(description="再生回数")
+    spike_ratio: float = Field(description="平均再生数に対する倍率")
+    thumbnail_url: Optional[str] = Field(default=None, description="サムネイル画像URL")
+
 class AIAnalysisResponse(BaseModel):
     channel_summary: str = Field(
         description="競合チャンネルのポジショニングを1行で簡潔に紹介する日本語の要約文。150文字以内で記述してください。"
@@ -20,6 +28,10 @@ class AIAnalysisResponse(BaseModel):
     recent_growth_analysis: Optional[str] = Field(
         default=None,
         description="注目フラグが立っている場合のみ生成される、直近の再生数急伸び要因およびヒット動画のサムネイル画像（配色・文字・構図）の視覚解析結果（250文字以内）。注目フラグが無い場合は null としてください。"
+    )
+    featured_videos: List[FeaturedVideoInfo] = Field(
+        default_factory=list,
+        description="Pythonバックエンドで自動紐付けされた最注目・スパイク動画のリスト（上位1〜3本）"
     )
     strengths: List[str] = Field(
         description="競合チャンネル独自の強み・差別化要素のリスト。各項目は100文字以内で、最大4項目まで。"

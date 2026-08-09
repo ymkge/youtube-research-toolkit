@@ -290,6 +290,109 @@
   color: #f3f4f6;
 }
 
+/* 最注目動画リンクセクション */
+.featuredVideosSection {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed rgba(245, 158, 11, 0.3);
+}
+
+.featuredVideosHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 0.65rem;
+}
+
+.playIcon {
+  color: #ef4444;
+}
+
+.featuredVideosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.featuredVideoCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background-color: rgba(30, 30, 36, 0.8);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.featuredVideoCard:hover {
+  background-color: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.6);
+  transform: translateY(-1px);
+}
+
+.primaryFeaturedCard {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.18) 0%, rgba(30, 30, 36, 0.9) 100%);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.featuredTag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background-color: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  white-space: nowrap;
+}
+
+.featuredContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.featuredTitle {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.featuredMeta {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.featuredLinkBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #38bdf8;
+  white-space: nowrap;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  background-color: rgba(56, 189, 248, 0.1);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.featuredVideoCard:hover .featuredLinkBtn {
+  background-color: #38bdf8;
+  color: #0f172a;
+}
+
 /* 2カラムレイアウト */
 .grid2 {
   display: flex;

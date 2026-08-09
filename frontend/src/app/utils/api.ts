@@ -48,9 +48,19 @@ export interface AIAnalysisTheme {
   example_video_title: string;
 }
 
+export interface FeaturedVideoInfo {
+  youtube_video_id: string;
+  title: string;
+  url: string;
+  view_count: number;
+  spike_ratio: number;
+  thumbnail_url?: string | null;
+}
+
 export interface AIAnalysisResponse {
   channel_summary: string;
   recent_growth_analysis?: string | null;
+  featured_videos?: FeaturedVideoInfo[];
   strengths: string[];
   weaknesses: string[];
   top_performing_themes: AIAnalysisTheme[];

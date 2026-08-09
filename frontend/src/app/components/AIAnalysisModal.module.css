@@ -241,19 +241,53 @@
   text-align: left;
 }
 
+/* 概要・サマリー */
 .summarySection {
-  background-color: #1b1b1b;
-  border-left: 4px solid #00ff7f;
-  border-radius: 4px 10px 10px 4px;
-  padding: 1rem 1.25rem;
+  background-color: #1e1e24;
+  border: 1px solid #2a2a36;
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .summaryText {
   margin: 0;
   font-size: 0.9rem;
-  line-height: 1.6;
+  line-height: 1.65;
   color: #e0e0e0;
   font-weight: 500;
+}
+
+/* 🚀 注目チャンネル特記: 直近再生数急増 & サムネイル分析カード */
+.recentGrowthCard {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.12) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.12);
+  page-break-inside: avoid;
+}
+
+.recentGrowthCard h4 {
+  margin: 0 0 0.55rem 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recentGrowthIcon {
+  color: #f59e0b;
+}
+
+.recentGrowthCard p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: #f3f4f6;
 }
 
 /* 2カラムレイアウト */

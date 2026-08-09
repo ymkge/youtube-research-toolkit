@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AIAnalysisResponse } from '../utils/api';
 import styles from './AIAnalysisModal.module.css';
-import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image, Info } from 'lucide-react';
+import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image, Info, Flame } from 'lucide-react';
 
 interface AIAnalysisModalProps {
   isOpen: boolean;
@@ -199,6 +199,17 @@ export default function AIAnalysisModal({
               <div className={styles.summarySection}>
                 <p className={styles.summaryText}>{analysis.channel_summary}</p>
               </div>
+
+              {/* 🚀 注目チャンネル特記: 直近の再生数急拡大 ＆ サムネイルデザイン分析 */}
+              {analysis.recent_growth_analysis && (
+                <div className={styles.recentGrowthCard}>
+                  <h4>
+                    <Flame size={16} className={styles.recentGrowthIcon} />
+                    <span>🚀 注目チャンネル特別分析: 直近の再生数急増 ＆ サムネイル勝因分析</span>
+                  </h4>
+                  <p>{analysis.recent_growth_analysis}</p>
+                </div>
+              )}
 
               {/* 強み・弱み (2カラム) */}
               <div className={styles.grid2}>

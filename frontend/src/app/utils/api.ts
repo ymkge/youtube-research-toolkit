@@ -50,6 +50,7 @@ export interface AIAnalysisTheme {
 
 export interface AIAnalysisResponse {
   channel_summary: string;
+  recent_growth_analysis?: string | null;
   strengths: string[];
   weaknesses: string[];
   top_performing_themes: AIAnalysisTheme[];

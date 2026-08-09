@@ -416,6 +416,11 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
         "description": db_channel.description
     }
     
+    # is_featured 判定 (ピン留め OR 前日比登録者急増 OR 前日比再生数成長率上昇)
+    sub_growth = getattr(db_channel, 'daily_sub_growth', 0) or 0
+    view_growth_rate = getattr(db_channel, 'daily_view_growth_rate', 0.0) or 0.0
+    is_featured_flag = bool(db_channel.is_pinned or sub_growth >= 100 or view_growth_rate >= 2.0)
+
     videos_list = [
         {
             "title": v.title,
@@ -424,14 +429,15 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
             "like_count": v.like_count,
             "comment_count": v.comment_count,
             "duration": v.duration,
-            "tags": v.tags
+            "tags": v.tags,
+            "thumbnail_url": getattr(v, 'thumbnail_url', None) or f"https://i.ytimg.com/vi/{v.youtube_video_id}/hqdefault.jpg"
         }
         for v in videos
     ]
 
     # 6. AI分析の実行とエラーハンドリング
     try:
-        analysis_result = ai_service.analyze_channel_positioning(channel_dict, videos_list)
+        analysis_result = ai_service.analyze_channel_positioning(channel_dict, videos_list, is_featured=is_featured_flag)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

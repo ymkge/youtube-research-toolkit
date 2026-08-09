@@ -9,6 +9,7 @@ from app.core.config import settings
 # モック用のダミーAIレスポンス
 MOCK_AI_RESPONSE = {
     "channel_summary": "テスト用の要約文です。150文字以内の制約があります。",
+    "recent_growth_analysis": None,
     "strengths": ["強み1です", "強み2です"],
     "weaknesses": ["弱み1です", "弱み2です"],
     "top_performing_themes": [
@@ -154,3 +155,43 @@ def test_analyze_channel_with_none_values(mock_ai, client, db):
     assert called_video_data["view_count"] == 0          # Video view_count default=0
     assert called_video_data["like_count"] is None
     assert called_video_data["comment_count"] is None
+
+@patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_is_featured(mock_ai, client, db):
+    """
+    注目フラグ (is_pinned=True) のあるチャンネルの分析時、is_featured=True で
+    AIService.analyze_channel_positioning が呼び出されることを検証。
+    """
+    c = Channel(
+        youtube_channel_id="UC_FEATURED_PIN",
+        title="Pinned Featured Channel",
+        is_pinned=True,
+        sort_order=0
+    )
+    db.add(c)
+    db.flush()
+    v = Video(
+        channel_id=c.id,
+        youtube_video_id="v_feat_id",
+        title="Featured Video Title",
+        view_count=5000,
+        published_at=datetime.utcnow()
+    )
+    db.add(v)
+    db.commit()
+
+    mock_ai.is_configured.return_value = True
+    featured_mock_resp = AIAnalysisResponse(
+        **{**MOCK_AI_RESPONSE, "recent_growth_analysis": "直近でポモドーロ動画が急上昇し、サムネイルの大文字が寄与。"},
+        generated_at=datetime.utcnow()
+    )
+    mock_ai.analyze_channel_positioning.return_value = featured_mock_resp
+
+    response = client.post(f"/api/channels/{c.id}/analyze?force=true")
+    assert response.status_code == 200
+    assert response.json()["recent_growth_analysis"] is not None
+    assert "直近でポモドーロ動画が急上昇" in response.json()["recent_growth_analysis"]
+    
+    # 呼び出し時の第3引数 (is_featured) が True であることを検証
+    call_kwargs = mock_ai.analyze_channel_positioning.call_args
+    assert call_kwargs[1].get("is_featured") is True

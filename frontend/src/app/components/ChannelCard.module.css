@@ -259,6 +259,11 @@
   color: #38bdf8;
 }
 
+.ownChannelCard {
+  border: 1.5px solid rgba(56, 189, 248, 0.55) !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.14);
+}
+
 .ownBadge {
   display: inline-flex;
   align-items: center;
@@ -268,10 +273,10 @@
   color: #38bdf8;
   font-size: 0.68rem;
   font-weight: 700;
-  padding: 0.1rem 0.45rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 4px;
-  margin-left: 0.35rem;
-  vertical-align: middle;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .ownBadgeIcon {
@@ -283,7 +288,7 @@
   gap: 0.5rem;
   align-items: center;
   margin-bottom: 0.5rem;
-  padding-right: 6.5rem; /* 右上のボタンを考慮して右余白を設定 */
+  padding-right: 9.5rem; /* 右上アクションボタン5個分の十分な右余白を確保 */
 }
 
 .dragHandle {

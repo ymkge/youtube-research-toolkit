@@ -166,7 +166,7 @@ export default function ChannelCard({
 
   return (
     <div 
-      className={`${styles.card} ${rankClass} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart ? styles.expanded : ''}`}
+      className={`${styles.card} ${rankClass} ${channel.is_pinned ? styles.pinnedCard : ''} ${channel.is_own_channel ? styles.ownChannelCard : ''} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart ? styles.expanded : ''}`}
       onMouseLeave={() => setIsMenuOpen(false)}
     >
       <div className={styles.actionButtons}>
@@ -280,18 +280,19 @@ export default function ChannelCard({
                 {getCountryEmoji(channel.country)}
               </span>
             )}
-            {channel.is_own_channel && (
-              <span className={styles.ownBadge} title="比較基準の自チャンネル">
-                <Home size={11} className={styles.ownBadgeIcon} />
-                自チャンネル
-              </span>
-            )}
           </div>
 
-          {/* 急成長シグナルバッジ群 (登録者急増 & 再生数急増) */}
-          {((channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100) ||
+          {/* バッジ群 (自チャンネル & 急成長シグナル) */}
+          {(channel.is_own_channel ||
+            (channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100) ||
             (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0)) && (
             <div className={styles.badgeRow}>
+              {channel.is_own_channel && (
+                <div className={styles.ownBadge} title="比較基準の自チャンネル">
+                  <Home size={11} className={styles.ownBadgeIcon} />
+                  <span>自チャンネル</span>
+                </div>
+              )}
               {channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100 && (
                 <div className={styles.hotBadge} title="前日比で登録者数が100名以上急増中！">
                   <Flame size={12} className={styles.hotIcon} />

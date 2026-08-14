@@ -23,6 +23,7 @@ class ChannelResponse(BaseModel):
     country: Optional[str] = None
     sort_order: int
     is_pinned: bool
+    is_own_channel: bool = False
     latest_video_published_at: Optional[datetime] = None
     daily_sub_growth: int = 0
     daily_view_growth_rate: float = 0.0

@@ -120,6 +120,42 @@ def test_delete_channel(client, db):
     assert db.query(Channel).filter(Channel.id == c.id).first() is None
     assert db.query(Video).filter(Video.channel_id == c.id).first() is None
 
+def test_toggle_own_channel(client, db):
+    """
+    POST /api/channels/{id}/toggle-own のトグル切り替えおよび他チャンネルの単一選択排他制御を検証します。
+    """
+    ch1 = Channel(
+        youtube_channel_id="UC_TEST_OWN_1",
+        title="Test Channel 1",
+        subscriber_count=1000,
+        view_count=5000,
+        video_count=10,
+        is_own_channel=False
+    )
+    ch2 = Channel(
+        youtube_channel_id="UC_TEST_OWN_2",
+        title="Test Channel 2",
+        subscriber_count=2000,
+        view_count=10000,
+        video_count=20,
+        is_own_channel=False
+    )
+    db.add_all([ch1, ch2])
+    db.commit()
+
+    # ch1 を自チャンネルに設定
+    res = client.post(f"/api/channels/{ch1.id}/toggle-own")
+    assert res.status_code == 200
+    assert res.json()["is_own_channel"] is True
+
+    # ch2 を自チャンネルに設定 -> ch1 は自動で False に一括更新される排他制御の検証
+    res2 = client.post(f"/api/channels/{ch2.id}/toggle-own")
+    assert res2.status_code == 200
+    assert res2.json()["is_own_channel"] is True
+
+    db.refresh(ch1)
+    assert ch1.is_own_channel is False
+
 def test_update_channel_pin(client, db):
     """
     チャンネルのピン留め状態をPATCHリクエストで更新するAPIテスト。

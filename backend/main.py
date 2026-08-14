@@ -58,6 +58,13 @@ def run_migrations():
             db.execute(text("ALTER TABLE channels ADD COLUMN ai_analysis_generated_at DATETIME"))
             db.commit()
             print("Migration: 'ai_analysis_generated_at' column added successfully.")
+
+        # is_own_channel カラムの追加
+        if 'is_own_channel' not in columns:
+            print("Migration: Adding 'is_own_channel' column to 'channels' table...")
+            db.execute(text("ALTER TABLE channels ADD COLUMN is_own_channel BOOLEAN DEFAULT 0"))
+            db.commit()
+            print("Migration: 'is_own_channel' column added successfully.")
             
     except Exception as e:
         print(f"Migration warning: {e}")

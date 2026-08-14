@@ -324,6 +324,42 @@ def update_channel_pin(channel_id: int, is_pinned: bool, db: Session = Depends(g
     res.live_ratio = l_rat
     return res
 
+@router.post("/{channel_id}/toggle-own", response_model=ChannelResponse)
+def toggle_own_channel(channel_id: int, db: Session = Depends(get_db)):
+    """
+    指定されたチャンネルの自チャンネル(is_own_channel)フラグをトグル更新します。
+    ONにセットする場合は、他のすべてのチャンネルの自チャンネルフラグをOFFにリセットします（単一選択排他制御）。
+    """
+    db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+
+    target_state = not bool(getattr(db_channel, 'is_own_channel', False))
+
+    if target_state:
+        # 他の全チャンネルの is_own_channel を False に一括更新（単一選択制御）
+        db.query(Channel).filter(Channel.id != channel_id).update({Channel.is_own_channel: False})
+    
+    db_channel.is_own_channel = target_state
+    db.commit()
+    db.refresh(db_channel)
+
+    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, db_channel.id)
+    db_channel.average_video_duration = avg_duration
+    db_channel.average_views_per_video = avg_views
+    db_channel.average_upload_frequency = avg_freq
+    db_channel.latest_video_published_at = latest_upload
+    res = ChannelResponse.model_validate(db_channel)
+    res.short_video_count = s_cnt
+    res.live_stream_count = l_cnt
+    res.regular_video_count = r_cnt
+    res.short_ratio = s_rat
+    res.live_ratio = l_rat
+    return res
+
 @router.put("/sort", status_code=status.HTTP_204_NO_CONTENT)
 def update_channels_sort(payload: ChannelSortRequest, db: Session = Depends(get_db)):
     """
@@ -415,6 +451,23 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
         "average_views_per_video": avg_views or 0,
         "description": db_channel.description
     }
+
+    # 自チャンネルデータの検索 (分析対象チャンネル自身が自チャンネルの場合は除外)
+    own_db_channel = db.query(Channel).filter(
+        Channel.is_own_channel == True,
+        Channel.id != db_channel.id
+    ).first()
+
+    own_channel_dict = None
+    if own_db_channel:
+        o_dur, o_views, o_freq, o_upload, _, _, _, _, _ = calculate_channel_metrics(db, own_db_channel.id)
+        own_channel_dict = {
+            "title": own_db_channel.title,
+            "subscriber_count": own_db_channel.subscriber_count,
+            "view_count": own_db_channel.view_count,
+            "average_views_per_video": o_views or 0,
+            "description": own_db_channel.description
+        }
     
     # is_featured 判定 (ピン留め OR 前日比登録者急増 OR 前日比再生数成長率上昇)
     sub_growth = getattr(db_channel, 'daily_sub_growth', 0) or 0
@@ -438,7 +491,12 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
 
     # 6. AI分析の実行とエラーハンドリング
     try:
-        analysis_result = ai_service.analyze_channel_positioning(channel_dict, videos_list, is_featured=is_featured_flag)
+        analysis_result = ai_service.analyze_channel_positioning(
+            channel_dict,
+            videos_list,
+            is_featured=is_featured_flag,
+            own_channel_data=own_channel_dict
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -17,6 +17,7 @@ export interface Channel {
   country: string | null; // 国名コード (JP, US など)
   sort_order: number; // 表示順
   is_pinned: boolean; // ピン留め状態
+  is_own_channel?: boolean; // 自チャンネルフラグ
   latest_video_published_at: string | null; // 最新動画アップロード日時
   daily_sub_growth?: number; // 前日比登録者増加数
   daily_view_growth_rate?: number; // 前日比総再生数成長率 (%)
@@ -57,9 +58,23 @@ export interface FeaturedVideoInfo {
   thumbnail_url?: string | null;
 }
 
+export interface GrowthFactorDetail {
+  thumbnail_title_factors: string;
+  posting_frequency_impact: string;
+  conversion_rate_evaluation: string;
+}
+
+export interface OwnChannelPrescription {
+  gap_analysis: string;
+  actionable_steps: string[];
+  priority_improvement: string;
+}
+
 export interface AIAnalysisResponse {
   channel_summary: string;
   recent_growth_analysis?: string | null;
+  growth_factor_detail?: GrowthFactorDetail | null;
+  own_channel_prescription?: OwnChannelPrescription | null;
   featured_videos?: FeaturedVideoInfo[];
   strengths: string[];
   weaknesses: string[];
@@ -314,6 +329,20 @@ export async function fetchChannelMilestones(): Promise<ChannelMilestonesRespons
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.detail || 'マイルストーン達成日の取得に失敗しました。');
+  }
+  return res.json();
+}
+
+/**
+ * チャンネルの自チャンネル(is_own_channel)フラグをトグル切り替えします。
+ */
+export async function toggleOwnChannel(channelId: number): Promise<Channel> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/toggle-own`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || '自チャンネル設定の更新に失敗しました。');
   }
   return res.json();
 }

@@ -3,6 +3,7 @@ import datetime
 import os
 from google import genai
 from google.genai import types
+from typing import Optional, List
 from app.core.config import settings
 from app.schemas.ai_analysis import AIAnalysisResponse, FeaturedVideoInfo
 
@@ -27,10 +28,10 @@ class AIService:
         """
         return bool(settings.GEMINI_API_KEY)
 
-    def analyze_channel_positioning(self, channel_data: dict, videos: list, is_featured: bool = False) -> AIAnalysisResponse:
+    def analyze_channel_positioning(self, channel_data: dict, videos: list, is_featured: bool = False, own_channel_data: Optional[dict] = None) -> AIAnalysisResponse:
         """
         Gemini API を使用して、競合チャンネルの定量・定性データからポジショニングレポートを生成します。
-        注目フラグ (is_featured=True) の場合は、サムネイル画像のマルチモーダル解析と直近再生数急増要因を出力します。
+        注目・急成長チャンネルの場合は、サムネイル勝因・投稿頻度の影響・登録率評価・自チャンネル改善処方箋を出力します。
         """
         if not self.is_configured():
             raise ValueError("Gemini APIキーが設定されていません。")
@@ -40,8 +41,32 @@ class AIService:
         total_views = channel_data.get('view_count') or 0
         avg_views = channel_data.get('average_views_per_video') or 0
 
-        # 直近30日間のスパイク動画 (再生数 >= 平均 * 1.5) の抽出
+        # 定量メトリクスの事前計算 (チャンネル登録率 & 登録獲得効率)
+        conv_rate = (subscribers / total_views * 100.0) if total_views > 0 else 0.0
+        views_per_sub = (total_views / subscribers) if subscribers > 0 else 0
+
+        # 投稿頻度・ペースの事前計算
         now_date = datetime.datetime.utcnow()
+        pub_dates = []
+        for v in videos:
+            p = v.get('published_at')
+            if p:
+                if not isinstance(p, datetime.datetime):
+                    try:
+                        p = datetime.datetime.fromisoformat(str(p).replace('Z', ''))
+                    except Exception:
+                        p = None
+                if isinstance(p, datetime.datetime):
+                    pub_dates.append(p)
+        pub_dates.sort(reverse=True)
+
+        recent_30d_cnt = sum(1 for p in pub_dates if (now_date - p).days <= 30)
+        avg_interval_days = 0.0
+        if len(pub_dates) >= 2:
+            intervals = [(pub_dates[i] - pub_dates[i+1]).days for i in range(len(pub_dates)-1)]
+            avg_interval_days = round(sum(intervals) / len(intervals), 1)
+
+        # 直近30日間のスパイク動画 (再生数 >= 平均 * 1.5) の抽出
         recent_spikes = []
         for v in videos:
             pub = v.get('published_at')
@@ -60,12 +85,24 @@ class AIService:
         recent_spikes.sort(key=lambda x: x[0], reverse=True)
 
         context_parts = []
-        context_parts.append("=== チャンネル情報 ===")
+        context_parts.append("=== 競合チャンネル情報 ===")
         context_parts.append(f"チャンネル名: {channel_data.get('title')}")
         context_parts.append(f"登録者数: {subscribers:,}人")
         context_parts.append(f"総再生数: {total_views:,}回")
         context_parts.append(f"平均動画再生数: {int(avg_views):,}回")
+        context_parts.append(f"チャンネル登録率 (CV率): {conv_rate:.2f}% (再生{int(views_per_sub):,}回で1登録獲得)")
+        context_parts.append(f"投稿ペーストレンド: 直近30日間で{recent_30d_cnt}本投稿 / 平均投稿間隔: {avg_interval_days}日")
         context_parts.append(f"説明文: {channel_data.get('description', '') or ''}")
+
+        if own_channel_data:
+            o_sub = own_channel_data.get('subscriber_count') or 0
+            o_views = own_channel_data.get('view_count') or 0
+            o_avg = own_channel_data.get('average_views_per_video') or 0
+            o_conv = (o_sub / o_views * 100.0) if o_views > 0 else 0.0
+            context_parts.append("\n=== 🏠 自チャンネル情報 (比較基準データ) ===")
+            context_parts.append(f"自チャンネル名: {own_channel_data.get('title')}")
+            context_parts.append(f"登録者数: {o_sub:,}人 | 総再生数: {o_views:,}回 | 平均再生数: {int(o_avg):,}回 | 登録率: {o_conv:.2f}%")
+            context_parts.append(f"説明文: {own_channel_data.get('description', '') or ''}")
 
         if is_featured and recent_spikes:
             context_parts.append("\n=== 🔥 【特筆データ】直近30日間のヒット・スパイク動画 ===")
@@ -152,32 +189,52 @@ class AIService:
 注目フラグが立っていないため、`recent_growth_analysis` フィールドには必ず JSON の `null` を設定してください（文字入力は不要です）。
 """
 
+        own_prescription_instruction = ""
+        if own_channel_data:
+            own_prescription_instruction = """
+【💊 自チャンネル改善処方箋の出力指示】
+「🏠 自チャンネル情報 (比較基準データ)」が入力されています。競合と自チャンネルを直接対比し、最重要KPIである「チャンネル登録率」を最大化するための具体的アドバイスを `own_channel_prescription` に出力してください：
+- `gap_analysis`: 競合と自チャンネルの定量指標・コンテンツの決定的な差（150文字以内）。
+- `actionable_steps`: 自チャンネルでチャンネル登録率を高めるため、サムネイルやタイトルで今すぐ試せる具体的A/Bテスト改善案のリスト（最大3項目、各80文字以内）。
+- `priority_improvement`: 自チャンネルが最優先で改善・着手すべき最重要ポイント（100文字以内）。
+"""
+        else:
+            own_prescription_instruction = """
+【自チャンネル未設定の注意事項】
+自チャンネル情報が入力されていないため、`own_channel_prescription` フィールドには必ず JSON の `null` を設定してください。
+"""
+
         # 2. プロンプト（分析指示）の構築
         prompt = f"""
 あなたはYouTube競合分析およびマーケティングのプロフェッショナルです。
-以下の「チャンネル情報」、「最新100件の動画パフォーマンス」、および「最優先考慮すべき専門知識」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
+以下の「競合チャンネル情報」、「最新100件の動画パフォーマンス」、「最優先考慮すべき専門知識」、および「自チャンネル情報」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
 
 {knowledge_section}
 
 {featured_instruction}
 
+{own_prescription_instruction}
+
 【分析の指示】
 1. 競合独自の「強み（差別化要素）」および「弱み（カバーしきれていない領域）」を抽出してください。
 2. 動画一覧の「再生数（平均に対する倍率）」や「動画の長さ（ロング・ショート）」、「高評価数」を比較し、特に高パフォーマンスを発揮している「主要なヒットテーマ」を最大3つ特定してください。
-3. 自チャンネルがこの競合に対して、どのようなポジショニングを狙うべきか、具体的な差別化戦略のアドバイスを提示してください。
-4. ドメイン知識で指定されたリスク（Shortsによる滞在時間低下等）を踏まえ、短期的ではなく長期的・本質的な成長施策を中心に提案してください。
+3. `growth_factor_detail` に、競合の「サムネイル・タイトルの具体的勝因 (200文字以内)」、「投稿頻度の影響 (150文字以内)」、および「チャンネル登録率評価 (150文字以内)」を出力してください。
+4. 自チャンネルがこの競合に対して、どのようなポジショニングを狙うべきか、具体的な差別化戦略のアドバイスを提示してください。
 
 【文字数・件数制限の厳守】
 Pydanticのレスポンススキーマ（response_schema）で定義されている文字数制限を**厳格に守ってください**。
 - `channel_summary`: 150文字以内
 - `recent_growth_analysis`: 注目フラグ時250文字以内（注目なし時は null）
+- `growth_factor_detail.thumbnail_title_factors`: 200文字以内
+- `growth_factor_detail.posting_frequency_impact`: 150文字以内
+- `growth_factor_detail.conversion_rate_evaluation`: 150文字以内
+- `own_channel_prescription.gap_analysis`: 150文字以内
+- `own_channel_prescription.actionable_steps`: 各80文字以内 (最大3項目)
+- `own_channel_prescription.priority_improvement`: 100文字以内
 - `strengths`: 各項目100文字以内（最大4項目）
 - `weaknesses`: 各項目100文字以内（最大4項目）
 - 各テーマの `reason_for_popularity`: 120文字以内（最大3テーマ）
 - `positioning_advice`: 各項目120文字以内（最大4項目）
-
-【データの解釈に関する注意】
-登録者数、再生数、高評価数、コメント数が 0 と表示されている項目は、実際には「非公開」または「データ未取得」を意味する場合があります。0だからといって単純に人気が無いチャンネル・動画であると決めつけることはせず、タイトルや説明文、他の動画の再生数などのデータから、総合的に強みやポジショニングを判定してください。
 
 【入力データ】
 {prompt_input}

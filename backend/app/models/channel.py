@@ -19,6 +19,7 @@ class Channel(Base):
     country = Column(String, nullable=True)
     sort_order = Column(Integer, default=0)
     is_pinned = Column(Boolean, default=False)
+    is_own_channel = Column(Boolean, default=False)
     ai_analysis = Column(Text, nullable=True)
     ai_analysis_generated_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

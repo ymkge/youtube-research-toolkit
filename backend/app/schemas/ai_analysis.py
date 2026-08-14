@@ -21,6 +21,28 @@ class FeaturedVideoInfo(BaseModel):
     spike_ratio: float = Field(description="平均再生数に対する倍率")
     thumbnail_url: Optional[str] = Field(default=None, description="サムネイル画像URL")
 
+class GrowthFactorDetail(BaseModel):
+    thumbnail_title_factors: str = Field(
+        description="サムネイルの配色・構図・フォントやタイトルキーワードなど、視聴者のクリックを誘発している視覚的・言語的勝因分析（200文字以内）。"
+    )
+    posting_frequency_impact: str = Field(
+        description="投稿間隔や連投ペース、更新タイミングがアルゴリズム露出およびファン定着に与えている影響の分析（150文字以内）。"
+    )
+    conversion_rate_evaluation: str = Field(
+        description="チャンネル登録率（再生数に対するチャンネル登録転換効率）の高低に関する要因分析とファン化構造の解説（150文字以内）。"
+    )
+
+class OwnChannelPrescription(BaseModel):
+    gap_analysis: str = Field(
+        description="急成長競合チャンネルと自チャンネルの定量指標・コンテンツ傾向の決定的な差（ギャップ）の分析（150文字以内）。"
+    )
+    actionable_steps: List[str] = Field(
+        description="自チャンネルが今すぐ実践・真似できる具体アクションのリスト。各項目80文字以内で最大3項目。"
+    )
+    priority_improvement: str = Field(
+        description="自チャンネルが最優先で改善・着手すべき最重要ポイント（100文字以内）。"
+    )
+
 class AIAnalysisResponse(BaseModel):
     channel_summary: str = Field(
         description="競合チャンネルのポジショニングを1行で簡潔に紹介する日本語の要約文。150文字以内で記述してください。"
@@ -28,6 +50,14 @@ class AIAnalysisResponse(BaseModel):
     recent_growth_analysis: Optional[str] = Field(
         default=None,
         description="注目フラグが立っている場合のみ生成される、直近の再生数急伸び要因およびヒット動画のサムネイル画像（配色・文字・構図）の視覚解析結果（250文字以内）。注目フラグが無い場合は null としてください。"
+    )
+    growth_factor_detail: Optional[GrowthFactorDetail] = Field(
+        default=None,
+        description="急成長チャンネルの深掘り要因分析（サムネイル/タイトル勝因、投稿頻度の影響、チャンネル登録率）。注目フラグまたは急成長チャンネルの場合に出力。"
+    )
+    own_channel_prescription: Optional[OwnChannelPrescription] = Field(
+        default=None,
+        description="自チャンネルが設定されている場合のみ出力される、自チャンネル専用の改善処方箋。自チャンネル未設定時は null としてください。"
     )
     featured_videos: List[FeaturedVideoInfo] = Field(
         default_factory=list,

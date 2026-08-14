@@ -10,6 +10,12 @@ from app.core.config import settings
 MOCK_AI_RESPONSE = {
     "channel_summary": "テスト用の要約文です。150文字以内の制約があります。",
     "recent_growth_analysis": None,
+    "growth_factor_detail": {
+        "thumbnail_title_factors": "明るい黄色の背景と太字フォントが視認性を高めています。",
+        "posting_frequency_impact": "週2回の定期投稿がアルゴリズム露出を維持しています。",
+        "conversion_rate_evaluation": "高い登録率を示しておりファン化に成功しています。"
+    },
+    "own_channel_prescription": None,
     "featured_videos": [],
     "strengths": ["強み1です", "強み2です"],
     "weaknesses": ["弱み1です", "弱み2です"],

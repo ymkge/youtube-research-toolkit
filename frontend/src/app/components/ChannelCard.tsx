@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Channel, fetchChannelHistory, ChannelStatsHistory } from '../utils/api';
+import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
   onDelete: (channelId: number) => Promise<void>;
   onPinToggle: (channelId: number, isPinned: boolean) => Promise<void>;
-  onDragStart: (e: React.DragEvent, channelId: number) => void;
-  onDragOver: (e: React.DragEvent, channelId: number) => void;
+  onUpdateChannel?: (updatedChannel: Channel) => void;
+  onDragStart: (e: React.DragEvent, id: number) => void;
+  onDragOver: (e: React.DragEvent, id: number) => void;
   onDragEnd: (e: React.DragEvent) => void;
   isDraggingNow?: boolean;
   onShowAIAnalysis: (channel: Channel) => void;
+  onToggleOwnChannel?: (channelId: number) => void;
   isAllTrendExpanded?: boolean;
   allTrendMetric?: 'subscribers' | 'views' | 'videos';
 }
@@ -52,9 +54,9 @@ function formatFrequency(freq: number | null): string {
   return `週 ${freq.toFixed(1)}回`;
 }
 
-// 国名コード (JP, US) から国旗絵文字に変換する関数
+// 国コード（ISO 3166-1 alpha-2）から国旗絵文字を生成する関数
 function getCountryEmoji(countryCode: string | null): string {
-  if (!countryCode) return '';
+  if (!countryCode || countryCode === 'UNKNOWN') return '';
   const codePoints = countryCode
     .toUpperCase()
     .split('')
@@ -66,11 +68,13 @@ export default function ChannelCard({
   channel, 
   onDelete, 
   onPinToggle,
+  onUpdateChannel,
   onDragStart,
   onDragOver,
   onDragEnd,
   isDraggingNow = false,
   onShowAIAnalysis,
+  onToggleOwnChannel,
   isAllTrendExpanded,
   allTrendMetric
 }: ChannelCardProps) {
@@ -186,6 +190,30 @@ export default function ChannelCard({
           <Brain size={14} />
         </button>
 
+        {/* 自チャンネル切り替えボタン */}
+        <button 
+          className={`${styles.ownButton} ${channel.is_own_channel ? styles.ownActive : ''}`} 
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (isDeleting) return;
+            try {
+              const updated = await toggleOwnChannel(channel.id);
+              if (onUpdateChannel) {
+                onUpdateChannel(updated);
+              } else if (onToggleOwnChannel) {
+                onToggleOwnChannel(channel.id);
+              }
+            } catch (err) {
+              console.error("自チャンネル切り替えエラー:", err);
+              alert("自チャンネル設定の更新に失敗しました。");
+            }
+          }} 
+          title={channel.is_own_channel ? "自チャンネル設定を解除" : "このチャンネルを自分のチャンネルに設定"}
+          disabled={isDeleting}
+        >
+          <Home size={14} className={channel.is_own_channel ? styles.ownIconActive : ''} />
+        </button>
+
         {/* ピン留めボタン */}
         <button 
           className={`${styles.pinButton} ${channel.is_pinned ? styles.pinned : ''}`} 
@@ -250,6 +278,12 @@ export default function ChannelCard({
             {channel.country && channel.country !== 'UNKNOWN' && (
               <span className={styles.countryFlag} title={`国: ${channel.country}`}>
                 {getCountryEmoji(channel.country)}
+              </span>
+            )}
+            {channel.is_own_channel && (
+              <span className={styles.ownBadge} title="比較基準の自チャンネル">
+                <Home size={11} className={styles.ownBadgeIcon} />
+                自チャンネル
               </span>
             )}
           </div>

@@ -415,24 +415,29 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
             detail="分析に必要な動画データがありません。先にチャンネル動画を同期してください。"
         )
 
-    # 3. インテリジェントキャッシュの判定 (force=False の場合のみ試行)
+    # 3. インテリジェント・24時間スマートキャッシュの判定 (force=False の場合のみ試行)
     if not force and db_channel.ai_analysis and db_channel.ai_analysis_generated_at:
-        video_sync_time = db_channel.updated_at
-        analysis_gen_time = db_channel.ai_analysis_generated_at
+        now = datetime.datetime.utcnow()
+        analysis_gen_time = db_channel.ai_analysis_generated_at.replace(tzinfo=None)
+        video_sync_time = db_channel.updated_at.replace(tzinfo=None) if db_channel.updated_at else None
+
+        # 条件1: 24時間以内であるか
+        is_within_24h = (now - analysis_gen_time) <= datetime.timedelta(hours=24)
         
-        # タイムゾーン情報を剥いで比較
-        if video_sync_time and analysis_gen_time:
-            video_sync_time = video_sync_time.replace(tzinfo=None)
-            analysis_gen_time = analysis_gen_time.replace(tzinfo=None)
-            
-            if analysis_gen_time >= video_sync_time:
-                try:
-                    cached_data = json.loads(db_channel.ai_analysis)
-                    # キャッシュデータに生成日時を追加して返却
-                    cached_data["generated_at"] = db_channel.ai_analysis_generated_at
-                    return AIAnalysisResponse(**cached_data)
-                except Exception as e:
-                    print(f"Failed to parse cached AI analysis: {e}")
+        # 条件2: 動画同期による更新が入っていないか (analysis_gen_time >= video_sync_time)
+        is_not_stale_by_sync = (video_sync_time is None) or (analysis_gen_time >= video_sync_time)
+
+        if is_within_24h and is_not_stale_by_sync:
+            try:
+                cached_data = json.loads(db_channel.ai_analysis)
+                cached_data["generated_at"] = db_channel.ai_analysis_generated_at
+                return AIAnalysisResponse(**cached_data)
+            except Exception as e:
+                print(f"Failed to parse cached AI analysis for channel {channel_id}, purging invalid cache: {e}")
+                # 破損したキャッシュをクリアしてセルフヒーリング
+                db_channel.ai_analysis = None
+                db_channel.ai_analysis_generated_at = None
+                db.commit()
 
     # 4. API キーの設定チェックとエラーハンドリング
     if not ai_service.is_configured():

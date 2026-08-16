@@ -254,3 +254,86 @@ def test_analyze_channel_is_featured_with_video_links(mock_ai, client, db):
     assert len(res_data["featured_videos"]) == 1
     assert res_data["featured_videos"][0]["youtube_video_id"] == "spike_vid_01"
     assert res_data["featured_videos"][0]["url"] == "https://www.youtube.com/watch?v=spike_vid_01"
+
+@patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_24h_cache_expiration(mock_ai, client, db):
+    """
+    24時間スマートキャッシュの検証:
+    - 23時間前のキャッシュ -> 有効 (API未呼び出し)
+    - 25時間前のキャッシュ -> 期限切れ (API再呼び出し)
+    - force=True リクエスト -> 強制更新 (API再呼び出し)
+    """
+    c = Channel(youtube_channel_id="UC_24H_TEST", title="24h Test Channel", sort_order=0)
+    db.add(c)
+    db.flush()
+    v = Video(channel_id=c.id, youtube_video_id="v_24h", title="Video Title", published_at=datetime.utcnow())
+    db.add(v)
+    db.commit()
+
+    mock_ai.is_configured.return_value = True
+    mock_response = AIAnalysisResponse(**MOCK_AI_RESPONSE, generated_at=datetime.utcnow())
+    mock_ai.analyze_channel_positioning.return_value = mock_response
+
+    # 1. 初回生成
+    client.post(f"/api/channels/{c.id}/analyze")
+    assert mock_ai.analyze_channel_positioning.call_count == 1
+
+    # 2. 23時間前に生成されたことに時刻を偽装 -> キャッシュ有効
+    db.refresh(c)
+    c.ai_analysis_generated_at = datetime.utcnow() - timedelta(hours=23)
+    c.updated_at = c.ai_analysis_generated_at
+    db.commit()
+
+    res2 = client.post(f"/api/channels/{c.id}/analyze")
+    assert res2.status_code == 200
+    assert mock_ai.analyze_channel_positioning.call_count == 1  # 増えない
+
+    # 3. 25時間前に偽装 -> キャッシュ切れで再呼び出し
+    c.ai_analysis_generated_at = datetime.utcnow() - timedelta(hours=25)
+    c.updated_at = c.ai_analysis_generated_at
+    db.commit()
+
+    res3 = client.post(f"/api/channels/{c.id}/analyze")
+    assert res3.status_code == 200
+    assert mock_ai.analyze_channel_positioning.call_count == 2  # 増える
+
+    # 4. 24時間以内だが force=true でリクエスト -> 強制更新
+    c.ai_analysis_generated_at = datetime.utcnow() - timedelta(hours=1)
+    c.updated_at = c.ai_analysis_generated_at
+    db.commit()
+
+    res4 = client.post(f"/api/channels/{c.id}/analyze?force=true")
+    assert res4.status_code == 200
+    assert mock_ai.analyze_channel_positioning.call_count == 3  # 増える
+
+@patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_corrupted_cache_fallback(mock_ai, client, db):
+    """
+    破損キャッシュ/旧スキーマデータのフォールバック検証:
+    JSONデコードエラーやPydanticパースエラーが発生した場合、
+    エラーで落ちずに破損キャッシュをクリアし、API再呼び出しを行って正常レスポンスを返すこと。
+    """
+    c = Channel(
+        youtube_channel_id="UC_CORRUPTED",
+        title="Corrupted Cache Channel",
+        ai_analysis="{ invalid json content }",
+        ai_analysis_generated_at=datetime.utcnow(),
+        sort_order=0
+    )
+    db.add(c)
+    db.flush()
+    v = Video(channel_id=c.id, youtube_video_id="v_corr", title="Video", published_at=datetime.utcnow())
+    db.add(v)
+    db.commit()
+
+    mock_ai.is_configured.return_value = True
+    mock_response = AIAnalysisResponse(**MOCK_AI_RESPONSE, generated_at=datetime.utcnow())
+    mock_ai.analyze_channel_positioning.return_value = mock_response
+
+    res = client.post(f"/api/channels/{c.id}/analyze")
+    assert res.status_code == 200
+    assert mock_ai.analyze_channel_positioning.call_count == 1
+
+    # DB上の破損キャッシュがクリアされた後、新生成されたキャッシュが入っていることを確認
+    db.refresh(c)
+    assert c.ai_analysis is not None

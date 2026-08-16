@@ -23,7 +23,7 @@ class FeaturedVideoInfo(BaseModel):
 
 class GrowthFactorDetail(BaseModel):
     thumbnail_title_factors: str = Field(
-        description="サムネイルの配色・構図・フォントやタイトルキーワードなど、視聴者のクリックを誘発している視覚的・言語的勝因分析（200文字以内）。"
+        description="【全動画共通フォーマット限定】チャンネル全体で一貫して採用されているサムネイルの配色・構図・フォントやタイトルのテンプレート勝因（200文字以内）。※直近の特定スパイク動画の解説(recent_growth_analysis)や自チャンネル改善案とは内容を絶対重複させないこと。"
     )
     posting_frequency_impact: str = Field(
         description="投稿間隔や連投ペース、更新タイミングがアルゴリズム露出およびファン定着に与えている影響の分析（150文字以内）。"
@@ -37,7 +37,7 @@ class OwnChannelPrescription(BaseModel):
         description="急成長競合チャンネルと自チャンネルの定量指標・コンテンツ傾向の決定的な差（ギャップ）の分析（150文字以内）。"
     )
     actionable_steps: List[str] = Field(
-        description="自チャンネルが今すぐ実践・真似できる具体アクションのリスト。各項目80文字以内で最大3項目。"
+        description="【自チャンネルA/Bテスト限定】自チャンネルが登録率向上に向けて即座にA/Bテスト検証すべき具体アクションリスト（各80文字以内、最大3項目）。※競合分析の単なる復唱・再掲は禁止。"
     )
     priority_improvement: str = Field(
         description="自チャンネルが最優先で改善・着手すべき最重要ポイント（100文字以内）。"
@@ -49,7 +49,7 @@ class AIAnalysisResponse(BaseModel):
     )
     recent_growth_analysis: Optional[str] = Field(
         default=None,
-        description="注目フラグが立っている場合のみ生成される、直近の再生数急伸び要因およびヒット動画のサムネイル画像（配色・文字・構図）の視覚解析結果（250文字以内）。注目フラグが無い場合は null としてください。"
+        description="【直近スパイク要因限定】注目フラグ時のみ生成。直近のヒット（スパイク）動画固有の一時的トリガーやサムネイルフックの個別勝因（250文字以内）。※全動画共通のデザインルール(thumbnail_title_factors)や自チャンネル改善案と内容を重複させないこと。注目フラグが無い場合は null。"
     )
     growth_factor_detail: Optional[GrowthFactorDetail] = Field(
         default=None,

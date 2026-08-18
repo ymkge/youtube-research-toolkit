@@ -430,66 +430,6 @@ export default function AIAnalysisModal({
                 </div>
               )}
 
-              {/* 強み・弱み (2カラム) */}
-              <div className={styles.grid2}>
-                <div className={`${styles.card} ${styles.cardStrength}`}>
-                  <h4>
-                    <CheckCircle2 size={16} className={styles.cardIconStrength} />
-                    <span>競合独自の強み</span>
-                  </h4>
-                  <ul>
-                    {analysis.strengths.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className={`${styles.card} ${styles.cardWeakness}`}>
-                  <h4>
-                    <AlertCircle size={16} className={styles.cardIconWeakness} />
-                    <span>弱み・未開拓領域</span>
-                  </h4>
-                  <ul>
-                    {analysis.weaknesses.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* 主要なヒットテーマ */}
-              <div className={styles.section}>
-                <h4 className={styles.sectionTitle}>
-                  <Trophy size={16} className={styles.sectionIconTrophy} />
-                  <span>高パフォーマンスなヒットテーマ</span>
-                </h4>
-                <div className={styles.themesGrid}>
-                  {analysis.top_performing_themes.map((theme, idx) => (
-                    <div key={idx} className={styles.themeCard}>
-                      <div className={styles.themeBadge}>Theme {idx + 1}</div>
-                      <h5>{theme.theme_name}</h5>
-                      <p>{theme.reason_for_popularity}</p>
-                      <div className={styles.exampleVideo}>
-                        <span>代表動画:</span> {theme.example_video_title}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 差別化アドバイス */}
-              <div className={`${styles.card} ${styles.cardAdvice}`}>
-                <h4>
-                  <ArrowRight size={16} className={styles.cardIconAdvice} />
-                  <span>自チャンネルの差別化・ポジショニング戦略アドバイス</span>
-                </h4>
-                <ul>
-                  {analysis.positioning_advice.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
               {/* レポート生成日時 & コントロール */}
               <div className={styles.footer}>
                 <span className={styles.generatedAt}>

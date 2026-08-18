@@ -219,14 +219,14 @@ export default function AIAnalysisModal({
                     onClick={() => setActiveTab('report')}
                   >
                     <Sparkles size={14} />
-                    <span>📊 AIポジショニング分析レポート</span>
+                    <span>AIポジショニング分析レポート</span>
                   </button>
                   <button
                     className={`${styles.tabBtn} ${activeTab === 'prescription' ? styles.activeTabBtn : ''}`}
                     onClick={() => setActiveTab('prescription')}
                   >
                     <Home size={14} />
-                    <span>💊 自チャンネル改善処方箋</span>
+                    <span>自チャンネル改善処方箋</span>
                   </button>
                 </div>
               )}

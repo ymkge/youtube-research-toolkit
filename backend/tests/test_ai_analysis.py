@@ -1,4 +1,5 @@
 import pytest
+import json
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 from app.models.channel import Channel
@@ -337,3 +338,44 @@ def test_analyze_channel_corrupted_cache_fallback(mock_ai, client, db):
     # DB上の破損キャッシュがクリアされた後、新生成されたキャッシュが入っていることを確認
     db.refresh(c)
     assert c.ai_analysis is not None
+
+def test_ai_service_retry_and_fallback(db):
+    """
+    503 UNAVAILABLE エラー発生時の指数バックオフリトライおよび
+    gemini-flash-latest -> gemini-flash-lite-latest へのフォールバック動作を検証。
+    """
+    from app.services.ai import ai_service
+    from google.genai import errors
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = json.dumps(MOCK_AI_RESPONSE)
+
+    # 1. 最初の2回は 503 APIError、3回目で成功するシナリオ
+    error_503 = errors.APIError(503, "This model is currently experiencing high demand.")
+    mock_client.models.generate_content.side_effect = [
+        error_503,
+        error_503,
+        mock_response
+    ]
+
+    res = ai_service._generate_content_with_retry(mock_client, ["test prompt"], MagicMock())
+    assert res == mock_response
+    assert mock_client.models.generate_content.call_count == 3
+
+    # 2. プライマリモデルで3回失敗し、フォールバックモデル (gemini-flash-lite-latest) で成功するシナリオ
+    mock_client.reset_mock()
+    mock_client.models.generate_content.side_effect = [
+        error_503,
+        error_503,
+        error_503,
+        mock_response
+    ]
+
+    res2 = ai_service._generate_content_with_retry(mock_client, ["test prompt"], MagicMock())
+    assert res2 == mock_response
+    assert mock_client.models.generate_content.call_count == 4
+    # 4回目の呼び出しモデルが fallback model ("gemini-flash-lite-latest") であること
+    called_model = mock_client.models.generate_content.call_args_list[3].kwargs.get("model")
+    assert called_model == "gemini-flash-lite-latest"

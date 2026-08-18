@@ -1,9 +1,12 @@
 import json
 import datetime
 import os
+import time
+import random
 from google import genai
-from google.genai import types
+from google.genai import types, errors
 from typing import Optional, List
+from fastapi import HTTPException, status
 from app.core.config import settings
 from app.schemas.ai_analysis import AIAnalysisResponse, FeaturedVideoInfo
 
@@ -28,6 +31,52 @@ class AIService:
         """
         return bool(settings.GEMINI_API_KEY)
 
+    def _generate_content_with_retry(self, client: genai.Client, contents: list, config: types.GenerateContentConfig):
+        """
+        Gemini API 呼び出し時に 503 (High Demand) または 429 (Rate Limit) エラーが発生した場合、
+        指数バックオフ＋ジッターで自動リトライし、それでも失敗した場合はサブモデルへ自動フォールバックします。
+        """
+        models_to_try = [
+            (settings.GEMINI_MODEL, 3),
+            (settings.GEMINI_FALLBACK_MODEL, 2)
+        ]
+
+        last_exception = None
+
+        for model_name, max_retries in models_to_try:
+            # フォールバックモデル使用時は、負荷軽減のため画像 Part を除外してテキスト主体に切り替え
+            current_contents = contents
+            if model_name == settings.GEMINI_FALLBACK_MODEL:
+                current_contents = [c for c in contents if isinstance(c, str)]
+
+            for attempt in range(max_retries):
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=current_contents,
+                        config=config
+                    )
+                    return response
+                except errors.APIError as e:
+                    last_exception = e
+                    if e.code in (503, 429) or isinstance(e, errors.ServerError):
+                        delay = min(1.0 * (2.0 ** attempt) + random.uniform(0.1, 0.5), 8.0)
+                        print(f"[Gemini API Warning] Model '{model_name}' status {e.code}. Retrying in {delay:.2f}s... (Attempt {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                    else:
+                        raise e
+                except Exception as ex:
+                    last_exception = ex
+                    delay = min(1.0 * (2.0 ** attempt) + random.uniform(0.1, 0.5), 8.0)
+                    print(f"[Gemini API Exception] Model '{model_name}': {ex}. Retrying in {delay:.2f}s...")
+                    time.sleep(delay)
+
+        # 全試行失敗時
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI分析サービスが混雑しています。一時的なエラーのため時間をおいて再試行してください。(詳細: {str(last_exception)})"
+        )
+
     def analyze_channel_positioning(self, channel_data: dict, videos: list, is_featured: bool = False, own_channel_data: Optional[dict] = None) -> AIAnalysisResponse:
         """
         Gemini API を使用して、競合チャンネルの定量・定性データからポジショニングレポートを生成します。
@@ -41,11 +90,9 @@ class AIService:
         total_views = channel_data.get('view_count') or 0
         avg_views = channel_data.get('average_views_per_video') or 0
 
-        # 定量メトリクスの事前計算 (チャンネル登録率 & 登録獲得効率)
         conv_rate = (subscribers / total_views * 100.0) if total_views > 0 else 0.0
         views_per_sub = (total_views / subscribers) if subscribers > 0 else 0
 
-        # 投稿頻度・ペースの事前計算
         now_date = datetime.datetime.utcnow()
         pub_dates = []
         for v in videos:
@@ -66,7 +113,6 @@ class AIService:
             intervals = [(pub_dates[i] - pub_dates[i+1]).days for i in range(len(pub_dates)-1)]
             avg_interval_days = round(sum(intervals) / len(intervals), 1)
 
-        # 直近30日間のスパイク動画 (再生数 >= 平均 * 1.5) の抽出
         recent_spikes = []
         for v in videos:
             pub = v.get('published_at')
@@ -81,12 +127,10 @@ class AIService:
                     days_ago = (now_date - pub).days
                     if days_ago <= 30 and avg_views > 0 and (v_views >= avg_views * 1.5):
                         recent_spikes.append((v_views / avg_views, days_ago, v))
-
         recent_spikes.sort(key=lambda x: x[0], reverse=True)
 
         context_parts = []
-        context_parts.append("=== 競合チャンネル情報 ===")
-        context_parts.append(f"チャンネル名: {channel_data.get('title')}")
+        context_parts.append(f"=== 分析対象競合チャンネル: {channel_data.get('title')} ===")
         context_parts.append(f"登録者数: {subscribers:,}人")
         context_parts.append(f"総再生数: {total_views:,}回")
         context_parts.append(f"平均動画再生数: {int(avg_views):,}回")
@@ -108,19 +152,15 @@ class AIService:
             context_parts.append("\n=== 🔥 【特筆データ】直近30日間のヒット・スパイク動画 ===")
             for ratio_val, days_val, s_video in recent_spikes[:5]:
                 context_parts.append(
-                    f"・タイトル: {s_video.get('title')}\n"
-                    f"  投稿日: {days_val}日前 | 再生数: {s_video.get('view_count', 0):,}回 (平均の{ratio_val:.1f}倍)\n"
-                    f"  高評価: {s_video.get('like_count', 0):,}回 | タグ: {s_video.get('tags', '') or ''}\n"
+                    f"・タイトル: {s_video.get('title')} | 投稿日: {days_val}日前 | 再生数: {s_video.get('view_count', 0):,}回 ({ratio_val:.1f}倍) | 高評価: {s_video.get('like_count', 0):,}"
                 )
 
-        context_parts.append("\n=== 最新100件の動画パフォーマンス ===")
-        
-        for idx, video in enumerate(videos, 1):
+        context_parts.append("\n=== 最新動画パフォーマンス (直近50件) ===")
+        for idx, video in enumerate(videos[:50], 1):
             views = video.get('view_count') or 0
             likes = video.get('like_count') or 0
             comments = video.get('comment_count') or 0
             ratio = (views / avg_views) if avg_views > 0 else 1.0
-            
             perf_label = f"{ratio:.1f}倍"
             
             published_str = "N/A"
@@ -130,18 +170,16 @@ class AIService:
                 else:
                     published_str = str(video.get('published_at'))
 
+            tags_raw = video.get('tags', '') or ''
+            tags_list = [t.strip() for t in tags_raw.split(',') if t.strip()][:3]
+            tags_str = ",".join(tags_list)
+
             context_parts.append(
-                f"{idx}. タイトル: {video.get('title')}\n"
-                f"   投稿日: {published_str}\n"
-                f"   再生数: {views:,}回 (平均の{perf_label})\n"
-                f"   高評価: {likes:,}回 / コメント: {comments:,}回\n"
-                f"   動画長: {video.get('duration', 'N/A') or 'N/A'}\n"
-                f"   タグ: {video.get('tags', '') or ''}\n"
+                f"{idx}. [{published_str}] {video.get('title')} | 再生:{views:,}回({perf_label}) | 高評価:{likes:,} | 長さ:{video.get('duration', 'N/A') or 'N/A'} | タグ:{tags_str}"
             )
 
         prompt_input = "\n".join(context_parts)
 
-        # サムネイル画像の安全なダウンロード (注目チャンネルかつスパイク動画存在時)
         image_parts = []
         if is_featured and recent_spikes:
             import httpx
@@ -161,7 +199,6 @@ class AIService:
                         except Exception as ex:
                             print(f"Thumbnail fetch warning: {ex}")
 
-        # ドメインナレッジの読み込みと注入
         domain_knowledge = load_domain_knowledge()
         knowledge_section = ""
         if domain_knowledge:
@@ -204,10 +241,9 @@ class AIService:
 自チャンネル情報が入力されていないため、`own_channel_prescription` フィールドには必ず JSON の `null` を設定してください。
 """
 
-        # 2. プロンプト（分析指示）の構築
         prompt = f"""
 あなたはYouTube競合分析およびマーケティングのプロフェッショナルです。
-以下の「競合チャンネル情報」、「最新100件の動画パフォーマンス」、「最優先考慮すべき専門知識」、および「自チャンネル情報」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
+以下の「競合チャンネル情報」、「最新50件の動画パフォーマンス」、「最優先考慮すべき専門知識」、および「自チャンネル情報」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
 
 {knowledge_section}
 
@@ -252,27 +288,22 @@ Pydanticのレスポンススキーマ（response_schema）で定義されてい
 {prompt_input}
 """
 
-        # 3. Gemini API 呼び出し (構造化出力の設定)
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         
         contents_list = [prompt]
         if image_parts:
             contents_list.extend(image_parts)
 
-        response = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=contents_list,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=AIAnalysisResponse,
-                temperature=0.2,
-            )
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=AIAnalysisResponse,
+            temperature=0.2,
         )
 
-        # 4. JSONレスポンスのパースとスキーマオブジェクト化
+        response = self._generate_content_with_retry(client, contents_list, config)
+
         result_json = json.loads(response.text)
         
-        # 最注目・スパイク動画オブジェクトの構築と自動注入
         featured_video_objects = []
         if is_featured and recent_spikes:
             for ratio_val, _, s_video in recent_spikes[:3]:

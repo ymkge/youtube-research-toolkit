@@ -839,6 +839,55 @@
   cursor: not-allowed;
 }
 
+/* 箇条書き・フォーマット出力スタイル */
+.formattedTextList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.formattedBulletItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #e0e0e0;
+}
+
+.bulletDot {
+  color: #00ff7f;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.formattedLineItem {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #d0d0d0;
+}
+
+.growthSubBlock {
+  margin-bottom: 0.75rem;
+}
+
+.growthSubTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #00ff7f;
+  margin-bottom: 0.25rem;
+}
+
+.exportSectionDivider {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 2px dashed rgba(138, 43, 226, 0.4);
+  color: #38bdf8;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .spinning {
   animation: spin 1s linear infinite;
 }

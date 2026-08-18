@@ -23,7 +23,7 @@ export default function AIAnalysisModal({
   onReanalyze,
 }: AIAnalysisModalProps) {
   const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'basic' | 'factors' | 'prescription'>('basic');
+  const [activeTab, setActiveTab] = useState<'report' | 'prescription'>('report');
 
   // モーダルが開いている間、背景のスクロールをロックする
   useEffect(() => {
@@ -38,6 +38,29 @@ export default function AIAnalysisModal({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // テキスト内に改行や「・」が含まれる場合、リストとしてフォーマット表記する関数
+  const renderFormattedText = (text: string) => {
+    if (!text) return null;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length <= 1 && !text.includes('・')) {
+      return <p>{text}</p>;
+    }
+    return (
+      <div className={styles.formattedTextList}>
+        {lines.map((line, idx) => {
+          const isBullet = line.startsWith('・') || line.startsWith('-');
+          const cleanLine = isBullet ? line.substring(1).trim() : line;
+          return (
+            <div key={idx} className={isBullet ? styles.formattedBulletItem : styles.formattedLineItem}>
+              {isBullet && <span className={styles.bulletDot}>•</span>}
+              <span>{cleanLine}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   // レポートコンテンツを高解像度 Canvas 化する共通処理
   const captureReportCanvas = async () => {
@@ -107,143 +130,136 @@ export default function AIAnalysisModal({
     }
   };
 
+  const hasGrowthFactors = Boolean(
+    analysis?.recent_growth_analysis ||
+    analysis?.growth_factor_detail?.thumbnail_title_factors ||
+    analysis?.growth_factor_detail?.posting_frequency_impact ||
+    analysis?.growth_factor_detail?.conversion_rate_evaluation
+  );
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        {/* モーダルヘッダー */}
+        {/* ヘッダーエリア */}
         <div className={styles.header}>
-          <div className={styles.titleInfo}>
-            <Brain className={styles.brainIcon} size={20} />
+          <div className={styles.headerTitle}>
+            <Brain className={styles.headerIcon} />
             <div>
               <h3>AIポジショニング分析レポート</h3>
-              <p className={styles.subtitle}>対象チャンネル: {channelTitle}</p>
+              <p className={styles.subTitle}>対象チャンネル: <span>{channelTitle}</span></p>
             </div>
           </div>
 
           <div className={styles.headerActions}>
             {/* エクスポートボタン群 (ヘッダー側) */}
-            {analysis && !isLoading && (
-              <div className={styles.exportGroupHeader}>
+            {analysis && (
+              <div className={styles.exportGroup}>
                 <button
                   onClick={handleExportPDF}
-                  className={styles.exportBtnHeader}
+                  className={styles.exportBtn}
                   title="レポートを PDF としてダウンロード"
                   disabled={isExporting}
                 >
-                  <FileText size={13} />
-                  <span>PDF</span>
+                  <FileText size={14} />
+                  <span>PDF保存</span>
                 </button>
                 <button
                   onClick={handleExportImage}
-                  className={styles.exportBtnHeader}
+                  className={styles.exportBtn}
                   title="レポートを画像 (PNG/SVG) としてダウンロード"
                   disabled={isExporting}
                 >
-                  <Image size={13} />
-                  <span>画像</span>
+                  <Image size={14} />
+                  <span>画像保存</span>
                 </button>
               </div>
             )}
-            <button className={styles.closeButton} onClick={onClose} title="閉じる">
+
+            <button onClick={onClose} className={styles.closeButton}>
               <X size={20} />
             </button>
           </div>
         </div>
 
-        {/* ℹ️ AI分析の生成仕組み説明バナー (100文字以内 / 100件未満フォロー注記付き) */}
-        <div className={styles.infoBanner}>
-          <Info size={15} className={styles.infoBannerIcon} />
-          <p className={styles.infoBannerText}>
-            本レポートは、チャンネルの統計・直近100件の動画(100件未満は全動画)・ドメインナレッジ(RAG)を元に、Gemini AIが競合の強み・弱み・ヒットテーマ・差別化戦略を自動分析して生成しています。
-          </p>
-        </div>
-
-        {/* モーダルコンテンツ */}
+        {/* コンテンツエリア */}
         <div className={styles.content}>
-          {/* ローディングスケルトン */}
           {isLoading && (
-            <div className={styles.skeletonContainer}>
-              <div className={styles.skeletonTitle}>
-                <Sparkles className={styles.skeletonIcon} size={16} />
-                <span>AIが競合データを多角的にポジショニング分析中...</span>
-              </div>
-              <div className={styles.skeletonLine} style={{ width: '80%' }} />
-              <div className={styles.skeletonLine} style={{ width: '60%' }} />
-              <div className={styles.skeletonGrid}>
-                <div className={styles.skeletonCard} />
-                <div className={styles.skeletonCard} />
-              </div>
+            <div className={styles.loadingContainer}>
+              <div className={styles.spinner}></div>
+              <p>Gemini AI がチャンネル・動画パフォーマンスを多角的に分析中...</p>
+              <span className={styles.loadingSubText}>直近100件の動画動向、投稿ペース、RAGドメイン知識を元にポジショニングを生成しています</span>
             </div>
           )}
 
-          {/* エラー表示 */}
           {error && (
             <div className={styles.errorContainer}>
-              <AlertCircle className={styles.errorIcon} size={24} />
-              <div className={styles.errorText}>
+              <AlertCircle size={24} className={styles.errorIcon} />
+              <div>
                 <h4>AI分析の生成に失敗しました</h4>
                 <p>{error}</p>
               </div>
             </div>
           )}
 
-          {/* レポートコンテンツ (キャプチャ対象 ID: ai-report-export-area) */}
-          {!isLoading && !error && analysis && (
-            <div id="ai-report-export-area" className={styles.reportContent}>
-              {/* レポートキャプチャ用ヘッダーブランディング */}
-              <div className={styles.exportBranding}>
-                <span className={styles.brandingTitle}>YouTube Research Toolkit - AI Positioning Analysis</span>
-                <span className={styles.brandingChannel}>Target: {channelTitle}</span>
+          {analysis && !isLoading && (
+            <div className={styles.reportArea} id="ai-report-export-area">
+              {/* ガイダンス注記 */}
+              <div className={styles.guideBox}>
+                <Info size={16} className={styles.guideIcon} />
+                <span>
+                  本レポートは、チャンネルの統計・直近100件の動画・ドメインナレッジ(RAG)を元に、Gemini AIが競合の強み・弱み・ヒットテーマ・差別化戦略を自動分析して生成しています。
+                </span>
               </div>
 
-              {/* タブナビゲーション */}
-              <div className={styles.tabBar}>
-                <button
-                  className={`${styles.tabBtn} ${activeTab === 'basic' ? styles.activeTabBtn : ''}`}
-                  onClick={() => setActiveTab('basic')}
-                >
-                  <Brain size={14} />
-                  <span>基本ポジショニング</span>
-                </button>
-                <button
-                  className={`${styles.tabBtn} ${activeTab === 'factors' ? styles.activeTabBtn : ''}`}
-                  onClick={() => setActiveTab('factors')}
-                >
-                  <Flame size={14} />
-                  <span>🔥 急成長要因詳細</span>
-                </button>
-                <button
-                  className={`${styles.tabBtn} ${activeTab === 'prescription' ? styles.activeTabBtn : ''}`}
-                  onClick={() => setActiveTab('prescription')}
-                >
-                  <Home size={14} />
-                  <span>💊 自チャンネル改善処方箋</span>
-                </button>
-              </div>
+              {/* ナビゲーションタブバー (キャプチャ時は非表示) */}
+              {!isExporting && (
+                <div className={styles.tabBar}>
+                  <button
+                    className={`${styles.tabBtn} ${activeTab === 'report' ? styles.activeTabBtn : ''}`}
+                    onClick={() => setActiveTab('report')}
+                  >
+                    <Sparkles size={14} />
+                    <span>📊 AIポジショニング分析レポート</span>
+                  </button>
+                  <button
+                    className={`${styles.tabBtn} ${activeTab === 'prescription' ? styles.activeTabBtn : ''}`}
+                    onClick={() => setActiveTab('prescription')}
+                  >
+                    <Home size={14} />
+                    <span>💊 自チャンネル改善処方箋</span>
+                  </button>
+                </div>
+              )}
 
-              {/* === タブ1: 基本ポジショニング === */}
-              {(activeTab === 'basic' || isExporting) && (
+              {/* === タブ1: 📊 AIポジショニング分析レポート (統合メイン) === */}
+              {(activeTab === 'report' || isExporting) && (
                 <div className={styles.tabContentSection}>
                   {/* 概要・サマリー */}
                   <div className={styles.summarySection}>
                     <p className={styles.summaryText}>{analysis.channel_summary}</p>
                   </div>
 
-                  {/* 🚀 注目チャンネル特記: 直近の再生数急拡大 ＆ サムネイルデザイン分析 */}
-                  {analysis.recent_growth_analysis && (
+                  {/* 🔥 急成長要因詳細セクション (注目・急成長チャンネル時のみ動的挿入) */}
+                  {hasGrowthFactors && (
                     <div className={styles.recentGrowthCard}>
                       <h4>
                         <Flame size={16} className={styles.recentGrowthIcon} />
-                        <span>🚀 注目チャンネル特別分析: 直近の再生数急増 ＆ サムネイル勝因分析</span>
+                        <span>🔥 注目・急成長要因深掘り分析</span>
                       </h4>
-                      <p>{analysis.recent_growth_analysis}</p>
+
+                      {analysis.recent_growth_analysis && (
+                        <div className={styles.growthSubBlock}>
+                          <h5 className={styles.growthSubTitle}>🚀 直近再生数急増 ＆ サムネイル視覚勝因</h5>
+                          {renderFormattedText(analysis.recent_growth_analysis)}
+                        </div>
+                      )}
 
                       {/* 🎥 最注目・スパイク動画のダイレクトURLリンク群 */}
                       {analysis.featured_videos && analysis.featured_videos.length > 0 && (
                         <div className={styles.featuredVideosSection}>
                           <div className={styles.featuredVideosHeader}>
                             <Play size={13} className={styles.playIcon} />
-                            <span>分析の根拠となった直近の最注目動画 (クリックでYouTube再生)</span>
+                            <span>分析の根拠となった直近の最注目動画</span>
                           </div>
                           <div className={styles.featuredVideosList}>
                             {analysis.featured_videos.map((video, idx) => (
@@ -273,45 +289,104 @@ export default function AIAnalysisModal({
                           </div>
                         </div>
                       )}
+
+                      {/* 共通勝因カード3連 */}
+                      {analysis.growth_factor_detail && (
+                        <div className={styles.factorDetailContainer}>
+                          {analysis.growth_factor_detail.thumbnail_title_factors && (
+                            <div className={styles.factorCard}>
+                              <h5>🖼️ サムネイル ＆ タイトルの共通勝因</h5>
+                              {renderFormattedText(analysis.growth_factor_detail.thumbnail_title_factors)}
+                            </div>
+                          )}
+                          {analysis.growth_factor_detail.posting_frequency_impact && (
+                            <div className={styles.factorCard}>
+                              <h5>📈 投稿頻度 ＆ 更新ペースの影響</h5>
+                              {renderFormattedText(analysis.growth_factor_detail.posting_frequency_impact)}
+                            </div>
+                          )}
+                          {analysis.growth_factor_detail.conversion_rate_evaluation && (
+                            <div className={styles.factorCard}>
+                              <h5>🎯 チャンネル登録率 (最重要KPI) ＆ ファン化構造</h5>
+                              {renderFormattedText(analysis.growth_factor_detail.conversion_rate_evaluation)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* === タブ2: 急成長要因詳細 === */}
-              {(activeTab === 'factors' || isExporting) && (
-                <div className={styles.tabContentSection}>
-                  <div className={styles.factorDetailContainer}>
-                    <div className={styles.factorCard}>
+                  {/* 強み・弱み (2カラム) */}
+                  <div className={styles.grid2}>
+                    <div className={`${styles.card} ${styles.cardStrength}`}>
                       <h4>
-                        <Sparkles size={16} className={styles.factorIcon} />
-                        <span>🖼️ サムネイル ＆ タイトルの具体勝因</span>
+                        <CheckCircle2 size={16} className={styles.cardIconStrength} />
+                        <span>競合独自の強み</span>
                       </h4>
-                      <p>{analysis.growth_factor_detail?.thumbnail_title_factors || '最新のヒットデータからサムネイル・タイトルの惹きつけ勝因を抽出中...'}</p>
+                      <ul>
+                        {analysis.strengths.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
                     </div>
 
-                    <div className={styles.factorCard}>
+                    <div className={`${styles.card} ${styles.cardWeakness}`}>
                       <h4>
-                        <Zap size={16} className={styles.factorIcon} />
-                        <span>📈 投稿頻度 ＆ 更新ペースの影響</span>
+                        <AlertCircle size={16} className={styles.cardIconWeakness} />
+                        <span>弱み・未開拓領域</span>
                       </h4>
-                      <p>{analysis.growth_factor_detail?.posting_frequency_impact || '投稿間隔や更新ペースがアルゴリズム露出に及ぼした影響を分析中...'}</p>
+                      <ul>
+                        {analysis.weaknesses.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
                     </div>
+                  </div>
 
-                    <div className={styles.factorCard}>
-                      <h4>
-                        <Target size={16} className={styles.factorIcon} />
-                        <span>🎯 チャンネル登録率 (最重要KPI) ＆ ファン化構造</span>
-                      </h4>
-                      <p>{analysis.growth_factor_detail?.conversion_rate_evaluation || '閲覧からチャンネル登録に至ったコンバージョン転換効率を評価中...'}</p>
+                  {/* 主要なヒットテーマ */}
+                  <div className={styles.section}>
+                    <h4 className={styles.sectionTitle}>
+                      <Trophy size={16} className={styles.sectionIconTrophy} />
+                      <span>高パフォーマンスなヒットテーマ</span>
+                    </h4>
+                    <div className={styles.themesGrid}>
+                      {analysis.top_performing_themes.map((theme, idx) => (
+                        <div key={idx} className={styles.themeCard}>
+                          <div className={styles.themeBadge}>Theme {idx + 1}</div>
+                          <h5>{theme.theme_name}</h5>
+                          <p>{theme.reason_for_popularity}</p>
+                          <div className={styles.exampleVideo}>
+                            <span>代表動画:</span> {theme.example_video_title}
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                  </div>
+
+                  {/* 差別化アドバイス */}
+                  <div className={`${styles.card} ${styles.cardAdvice}`}>
+                    <h4>
+                      <ArrowRight size={16} className={styles.cardIconAdvice} />
+                      <span>自チャンネルの差別化・ポジショニング戦略アドバイス</span>
+                    </h4>
+                    <ul>
+                      {analysis.positioning_advice.map((item, idx) => (
+                        <li key={idx}>{item}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               )}
 
-              {/* === タブ3: 自チャンネル改善処方箋 === */}
+              {/* === タブ2: 💊 自チャンネル改善処方箋 === */}
               {(activeTab === 'prescription' || isExporting) && (
                 <div className={styles.tabContentSection}>
+                  {isExporting && (
+                    <div className={styles.exportSectionDivider}>
+                      <h3>💊 自チャンネル改善処方箋</h3>
+                    </div>
+                  )}
+
                   {analysis.own_channel_prescription ? (
                     <div className={styles.prescriptionContainer}>
                       {/* ギャップ分析 */}
@@ -320,7 +395,7 @@ export default function AIAnalysisModal({
                           <Target size={16} className={styles.prescriptionIcon} />
                           <span>競合と自チャンネルの決定的な差 (ギャップ分析)</span>
                         </h4>
-                        <p>{analysis.own_channel_prescription.gap_analysis}</p>
+                        {renderFormattedText(analysis.own_channel_prescription.gap_analysis)}
                       </div>
 
                       {/* 具現的A/Bテスト改善アクション */}

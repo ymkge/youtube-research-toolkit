@@ -203,14 +203,6 @@ export default function AIAnalysisModal({
 
           {analysis && !isLoading && (
             <div className={styles.reportArea} id="ai-report-export-area">
-              {/* ガイダンス注記 */}
-              <div className={styles.guideBox}>
-                <Info size={16} className={styles.guideIcon} />
-                <span>
-                  本レポートは、チャンネルの統計・直近100件の動画・ドメインナレッジ(RAG)を元に、Gemini AIが競合の強み・弱み・ヒットテーマ・差別化戦略を自動分析して生成しています。
-                </span>
-              </div>
-
               {/* ナビゲーションタブバー (キャプチャ時は非表示) */}
               {!isExporting && (
                 <div className={styles.tabBar}>
@@ -230,6 +222,14 @@ export default function AIAnalysisModal({
                   </button>
                 </div>
               )}
+
+              {/* ガイダンス注記バナー */}
+              <div className={styles.guideBox}>
+                <Info size={15} className={styles.guideIcon} />
+                <p className={styles.guideText}>
+                  本レポートは、チャンネルの統計・直近100件の動画・ドメインナレッジ(RAG)を元に、Gemini AIが競合の強み・弱み・ヒットテーマ・差別化戦略を自動分析して生成しています。
+                </p>
+              </div>
 
               {/* === タブ1: 📊 AIポジショニング分析レポート (統合メイン) === */}
               {(activeTab === 'report' || isExporting) && (

@@ -185,7 +185,7 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
             db.commit()
 
         import os, json
-        history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "history"))
+        history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "history"))
         os.makedirs(history_dir, exist_ok=True)
         json_path = os.path.join(history_dir, f"{channel.youtube_channel_id}.json")
 
@@ -601,7 +601,7 @@ def fetch_missing_today_stats(db: Session = Depends(get_db)):
     all_channels = db.query(Channel).all()
     updated_titles = []
 
-    history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "history"))
+    history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "history"))
     os.makedirs(history_dir, exist_ok=True)
 
     for channel in all_channels:

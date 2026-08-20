@@ -189,24 +189,16 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
         os.makedirs(history_dir, exist_ok=True)
         json_path = os.path.join(history_dir, f"{channel.youtube_channel_id}.json")
 
-        h_data = []
-        if os.path.exists(json_path):
-            try:
-                with open(json_path, "r", encoding="utf-8") as f:
-                    h_data = json.load(f)
-            except Exception:
-                h_data = []
-
-        h_data = [item for item in h_data if item.get("date") != today_str]
-        h_data.append({
-            "date": today_str,
-            "subscriber_count": channel.subscriber_count or 0,
-            "view_count": channel.view_count or 0,
-            "video_count": channel.video_count or 0
-        })
-        h_data.sort(key=lambda x: x["date"])
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(h_data, f, indent=2, ensure_ascii=False)
+        # GitHub Actions が Target Discovery で検知できるよう、ファイルが存在しない場合のみ初回作成
+        if not os.path.exists(json_path):
+            h_data = [{
+                "date": today_str,
+                "subscriber_count": channel.subscriber_count or 0,
+                "view_count": channel.view_count or 0,
+                "video_count": channel.video_count or 0
+            }]
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(h_data, f, indent=2, ensure_ascii=False)
     except Exception as ex:
         print(f"Register channel history init warning: {ex}")
 
@@ -646,29 +638,6 @@ def fetch_missing_today_stats(db: Session = Depends(get_db)):
                     recorded_at=today_date
                 )
                 db.add(new_record)
-
-                # 3. data/history/*.json への保存・更新
-                json_file_path = os.path.join(history_dir, f"{channel.youtube_channel_id}.json")
-                history_data = []
-                if os.path.exists(json_file_path):
-                    try:
-                        with open(json_file_path, "r", encoding="utf-8") as f:
-                            history_data = json.load(f)
-                    except Exception:
-                        history_data = []
-
-                history_data = [item for item in history_data if item.get("date") != today_str]
-                history_data.append({
-                    "date": today_str,
-                    "subscriber_count": sub_count,
-                    "view_count": view_count,
-                    "video_count": video_count
-                })
-                history_data.sort(key=lambda x: x["date"])
-
-                with open(json_file_path, "w", encoding="utf-8") as f:
-                    json.dump(history_data, f, indent=2, ensure_ascii=False)
-
                 updated_titles.append(channel.title)
 
             except Exception as e:

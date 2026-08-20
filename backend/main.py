@@ -316,29 +316,7 @@ def ensure_today_stats_rescued():
                 recorded_at=today_date
             )
             db.add(new_record)
-
-            json_file_path = os.path.join(history_dir, f"{channel.youtube_channel_id}.json")
-            history_data = []
-            if os.path.exists(json_file_path):
-                try:
-                    with open(json_file_path, "r", encoding="utf-8") as f:
-                        history_data = json.load(f)
-                except Exception:
-                    history_data = []
-
-            history_data = [item for item in history_data if item.get("date") != today_str]
-            history_data.append({
-                "date": today_str,
-                "subscriber_count": sub_count,
-                "view_count": view_count,
-                "video_count": video_count
-            })
-            history_data.sort(key=lambda x: x["date"])
-
-            with open(json_file_path, "w", encoding="utf-8") as f:
-                json.dump(history_data, f, indent=2, ensure_ascii=False)
-
-            print(f"Startup Rescue: Successfully rescued and updated '{channel.title}' for {today_str}.")
+            print(f"Startup Rescue: Successfully rescued and updated '{channel.title}' in DB for {today_str}.")
 
         db.commit()
     except Exception as e:

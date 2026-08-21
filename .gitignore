@@ -46,6 +46,7 @@ htmlcov/
 *.db
 *.sqlite3
 *.sqlite
+backend/data/backups/
 
 # Environment Variables
 .env

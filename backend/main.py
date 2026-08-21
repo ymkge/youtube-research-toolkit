@@ -215,6 +215,14 @@ def startup_event():
 
     ensure_db_migrations()
 
+    # DB 自動バックアップ ＆ 7日ローテーション処理
+    try:
+        from app.core.backup import create_db_backup, cleanup_old_backups
+        create_db_backup()
+        cleanup_old_backups(retention_days=7)
+    except Exception as e:
+        print(f"Startup warning (DB Backup failed): {e}")
+
     try:
         from app.scripts.fix_video_types import run_fix_video_types
         run_fix_video_types()

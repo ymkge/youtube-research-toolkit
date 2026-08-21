@@ -47,6 +47,7 @@ htmlcov/
 *.sqlite3
 *.sqlite
 backend/data/backups/
+backend/data/history/UC_MOCK_123.json
 
 # Environment Variables
 .env

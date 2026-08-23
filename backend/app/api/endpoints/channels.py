@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.channel import Channel
@@ -33,14 +34,19 @@ def parse_iso8601_duration(duration_str: str) -> int:
     seconds = int(match.group(3)) if match.group(3) else 0
     return hours * 3600 + minutes * 60 + seconds
 
+def _ensure_utc(dt: datetime.datetime) -> datetime.datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.astimezone(datetime.timezone.utc)
+
 def calculate_channel_metrics(db: Session, channel_id: int):
     """
     チャンネルに紐づく動画データから「平均動画時間」「平均再生数」「平均投稿頻度(週単位)」「最新投稿日時」
-    および「Shorts本数」「LIVE本数」「通常動画本数」「Shorts割合」「LIVE割合」を算出します。
+    「Shorts本数」「LIVE本数」「通常動画本数」「Shorts割合」「LIVE割合」および「直近1週間(7日間)投稿本数」を算出します。
     """
     videos = db.query(Video).filter(Video.channel_id == channel_id).all()
     if not videos:
-        return None, None, None, None, 0, 0, 0, 0.0, 0.0
+        return None, None, None, None, 0, 0, 0, 0.0, 0.0, 0
 
     # 1. 平均動画時間 ＆ フォーマット分類 (Shorts / LIVE / 通常動画)
     total_seconds = 0
@@ -48,6 +54,11 @@ def calculate_channel_metrics(db: Session, channel_id: int):
     short_count = 0
     live_count = 0
     regular_count = 0
+
+    # 直近1週間 (168時間) 投稿本数の算出
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    seven_days_ago = now_utc - datetime.timedelta(days=7)
+    weekly_video_count = 0
 
     for v in videos:
         dur_sec = parse_iso8601_duration(v.duration) if v.duration else 0
@@ -64,6 +75,11 @@ def calculate_channel_metrics(db: Session, channel_id: int):
             live_count += 1
         else:
             regular_count += 1
+
+        if v.published_at:
+            pub_utc = _ensure_utc(v.published_at)
+            if seven_days_ago <= pub_utc <= now_utc:
+                weekly_video_count += 1
 
     avg_duration = total_seconds / duration_count if duration_count > 0 else None
 
@@ -89,7 +105,7 @@ def calculate_channel_metrics(db: Session, channel_id: int):
     short_ratio = round((short_count / total_v) * 100.0, 1) if total_v > 0 else 0.0
     live_ratio = round((live_count / total_v) * 100.0, 1) if total_v > 0 else 0.0
 
-    return avg_duration, avg_views, avg_frequency, latest_upload, short_count, live_count, regular_count, short_ratio, live_ratio
+    return avg_duration, avg_views, avg_frequency, latest_upload, short_count, live_count, regular_count, short_ratio, live_ratio, weekly_video_count
 
 def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str, import_limit: int = 100):
     """
@@ -117,7 +133,7 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
         db.flush()
 
     # 統計情報の算出と親テーブルへの保存
-    avg_duration, avg_views, avg_freq, latest_upload, short_cnt, live_cnt, reg_cnt, short_rat, live_rat = calculate_channel_metrics(db, channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, short_cnt, live_cnt, reg_cnt, short_rat, live_rat, w_cnt = calculate_channel_metrics(db, channel.id)
     channel.average_video_duration = avg_duration
     channel.average_views_per_video = avg_views
     channel.average_upload_frequency = avg_freq
@@ -129,61 +145,71 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
 def register_channel(payload: ChannelCreateRequest, response: Response, db: Session = Depends(get_db)):
     # 1. YouTube API から情報を取得
     try:
-        api_data = youtube_service.get_channel_info(payload.identifier)
+        info = youtube_service.get_channel_info(payload.identifier)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"YouTube APIエラー: {str(e)}"
+            detail=f"YouTube API からのチャンネル情報取得に失敗しました: {str(e)}"
         )
 
-    # 2. データベース内にすでに同一チャンネルIDが存在するか確認
-    db_channel = db.query(Channel).filter(
-        Channel.youtube_channel_id == api_data["youtube_channel_id"]
+    # 2. 既に DB に存在するか判定
+    existing_channel = db.query(Channel).filter(
+        Channel.youtube_channel_id == info["youtube_channel_id"]
     ).first()
 
-    # 動画同期に必要なアップロードプレイリストIDを退避し、データ辞書から削除
-    uploads_playlist_id = api_data.pop("uploads_playlist_id")
-
-    if db_channel:
-        # すでに登録済みの場合は最新データで更新
-        for key, value in api_data.items():
-            setattr(db_channel, key, value)
-        db_channel.updated_at = datetime.datetime.utcnow()
-        channel = db_channel
-        response.status_code = status.HTTP_200_OK
+    if existing_channel:
+        # 最新情報で更新
+        for key, value in info.items():
+            if key != "uploads_playlist_id":
+                setattr(existing_channel, key, value)
+        existing_channel.updated_at = datetime.datetime.utcnow()
+        channel = existing_channel
     else:
-        # 新規作成
-        channel = Channel(**api_data)
+        # ソート順の最大値を取得して末尾に追加
+        max_order = db.query(func.max(Channel.sort_order)).scalar() or 0
+        channel = Channel(
+            youtube_channel_id=info["youtube_channel_id"],
+            title=info["title"],
+            description=info["description"],
+            custom_url=info["custom_url"],
+            published_at=info["published_at"],
+            subscriber_count=info["subscriber_count"],
+            view_count=info["view_count"],
+            video_count=info["video_count"],
+            thumbnail_url=info["thumbnail_url"],
+            country=info["country"],
+            sort_order=max_order + 1
+        )
         db.add(channel)
 
-    db.flush()  # ID採番のためflush
+    db.commit()
+    db.refresh(channel)
 
-    # 3. 直近の動画データを同期してメトリクスを計算
+    # 3. 直近動画データの自動取得 ＆ DB同期
+    uploads_playlist_id = info.get("uploads_playlist_id")
     sync_channel_videos(db, channel, uploads_playlist_id, import_limit=payload.import_limit)
     db.refresh(channel)
 
-    # 4. 本日分 (JST) の初期時系列データおよび JSON 履歴を自動生成・保存
+    # 4. 初回統計履歴の自動生成（新規追加時）
+    today_date = datetime.date.today()
+    today_str = today_date.isoformat()
+    existing_hist = db.query(ChannelStatsHistory).filter(
+        ChannelStatsHistory.channel_id == channel.id,
+        ChannelStatsHistory.recorded_at == today_date
+    ).first()
+
+    if not existing_hist:
+        init_hist = ChannelStatsHistory(
+            channel_id=channel.id,
+            subscriber_count=channel.subscriber_count or 0,
+            view_count=channel.view_count or 0,
+            video_count=channel.video_count or 0,
+            recorded_at=today_date
+        )
+        db.add(init_hist)
+        db.commit()
+
     try:
-        JST = datetime.timezone(datetime.timedelta(hours=+9))
-        today_date = datetime.datetime.now(JST).date()
-        today_str = today_date.isoformat()
-
-        existing_hist = db.query(ChannelStatsHistory).filter(
-            ChannelStatsHistory.channel_id == channel.id,
-            ChannelStatsHistory.recorded_at == today_date
-        ).first()
-
-        if not existing_hist:
-            init_hist = ChannelStatsHistory(
-                channel_id=channel.id,
-                subscriber_count=channel.subscriber_count or 0,
-                view_count=channel.view_count or 0,
-                video_count=channel.video_count or 0,
-                recorded_at=today_date
-            )
-            db.add(init_hist)
-            db.commit()
-
         import os, json
         history_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "history"))
         os.makedirs(history_dir, exist_ok=True)
@@ -203,13 +229,14 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
         print(f"Register channel history init warning: {ex}")
 
     # レスポンスオブジェクトの返却
-    avg_duration, avg_views, avg_freq, latest_upload, short_cnt, live_cnt, reg_cnt, short_rat, live_rat = calculate_channel_metrics(db, channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, short_cnt, live_cnt, reg_cnt, short_rat, live_rat, w_cnt = calculate_channel_metrics(db, channel.id)
     res = ChannelResponse.model_validate(channel)
     res.short_video_count = short_cnt
     res.live_stream_count = live_cnt
     res.regular_video_count = reg_cnt
     res.short_ratio = short_rat
     res.live_ratio = live_rat
+    res.weekly_video_count = w_cnt
     return res
 
 @router.get("/", response_model=List[ChannelResponse])
@@ -240,7 +267,7 @@ def get_all_channels(db: Session = Depends(get_db)):
 
     res_list = []
     for c in channels:
-        avg_dur, avg_v, avg_f, latest_u, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, c.id)
+        avg_dur, avg_v, avg_f, latest_u, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, c.id)
         c.average_video_duration = avg_dur
         c.average_views_per_video = avg_v
         c.average_upload_frequency = avg_f
@@ -269,6 +296,7 @@ def get_all_channels(db: Session = Depends(get_db)):
         item_res.regular_video_count = r_cnt
         item_res.short_ratio = s_rat
         item_res.live_ratio = l_rat
+        item_res.weekly_video_count = w_cnt
         res_list.append(item_res)
 
     return res_list
@@ -303,7 +331,7 @@ def update_channel_pin(channel_id: int, is_pinned: bool, db: Session = Depends(g
     db.commit()
     db.refresh(db_channel)
     
-    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, db_channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, db_channel.id)
     db_channel.average_video_duration = avg_duration
     db_channel.average_views_per_video = avg_views
     db_channel.average_upload_frequency = avg_freq
@@ -314,6 +342,7 @@ def update_channel_pin(channel_id: int, is_pinned: bool, db: Session = Depends(g
     res.regular_video_count = r_cnt
     res.short_ratio = s_rat
     res.live_ratio = l_rat
+    res.weekly_video_count = w_cnt
     return res
 
 @router.post("/{channel_id}/toggle-own", response_model=ChannelResponse)
@@ -339,7 +368,7 @@ def toggle_own_channel(channel_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_channel)
 
-    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, db_channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, db_channel.id)
     db_channel.average_video_duration = avg_duration
     db_channel.average_views_per_video = avg_views
     db_channel.average_upload_frequency = avg_freq
@@ -350,6 +379,7 @@ def toggle_own_channel(channel_id: int, db: Session = Depends(get_db)):
     res.regular_video_count = r_cnt
     res.short_ratio = s_rat
     res.live_ratio = l_rat
+    res.weekly_video_count = w_cnt
     return res
 
 @router.put("/sort", status_code=status.HTTP_204_NO_CONTENT)
@@ -439,13 +469,14 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
         )
 
     # 5. コンテキストデータの整形
-    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, db_channel.id)
+    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, db_channel.id)
     
     channel_dict = {
         "title": db_channel.title,
         "subscriber_count": db_channel.subscriber_count,
         "view_count": db_channel.view_count,
         "average_views_per_video": avg_views or 0,
+        "weekly_video_count": w_cnt,
         "description": db_channel.description
     }
 
@@ -457,12 +488,13 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
 
     own_channel_dict = None
     if own_db_channel:
-        o_dur, o_views, o_freq, o_upload, _, _, _, _, _ = calculate_channel_metrics(db, own_db_channel.id)
+        o_dur, o_views, o_freq, o_upload, _, _, _, _, _, o_w_cnt = calculate_channel_metrics(db, own_db_channel.id)
         own_channel_dict = {
             "title": own_db_channel.title,
             "subscriber_count": own_db_channel.subscriber_count,
             "view_count": own_db_channel.view_count,
             "average_views_per_video": o_views or 0,
+            "weekly_video_count": o_w_cnt,
             "description": own_db_channel.description
         }
     

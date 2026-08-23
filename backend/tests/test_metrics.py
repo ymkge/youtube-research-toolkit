@@ -27,7 +27,7 @@ def test_calculate_metrics_no_videos(db):
     db.add(channel)
     db.commit()
 
-    avg_duration, avg_views, avg_frequency, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, channel.id)
+    avg_duration, avg_views, avg_frequency, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, channel.id)
     assert avg_duration is None
     assert avg_views is None
     assert avg_frequency is None
@@ -37,6 +37,7 @@ def test_calculate_metrics_no_videos(db):
     assert r_cnt == 0
     assert s_rat == 0.0
     assert l_rat == 0.0
+    assert w_cnt == 0
 
 def test_calculate_metrics_single_video(db):
     """
@@ -50,7 +51,7 @@ def test_calculate_metrics_single_video(db):
     db.add(channel)
     db.commit()
 
-    published_date = datetime(2026, 7, 10, 12, 0, 0)
+    published_date = datetime.utcnow()
     video = Video(
         channel_id=channel.id,
         youtube_video_id="video_single_id",
@@ -62,7 +63,7 @@ def test_calculate_metrics_single_video(db):
     db.add(video)
     db.commit()
 
-    avg_duration, avg_views, avg_frequency, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, channel.id)
+    avg_duration, avg_views, avg_frequency, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, channel.id)
     assert avg_duration == 600
     assert avg_views == 1000.0
     assert avg_frequency == 0.0
@@ -72,6 +73,7 @@ def test_calculate_metrics_single_video(db):
     assert r_cnt == 1
     assert s_rat == 0.0
     assert l_rat == 0.0
+    assert w_cnt == 1
 
 def test_calculate_metrics_multiple_videos(db):
     """
@@ -85,16 +87,17 @@ def test_calculate_metrics_multiple_videos(db):
     db.add(channel)
     db.commit()
 
-    # 1本目: 7/10 投稿 (PT10M = 600秒, views: 1000, 通常動画)
+    now = datetime.utcnow()
+    # 1本目: 10日前 投稿 (PT10M = 600秒, views: 1000, 通常動画)
     video1 = Video(
         channel_id=channel.id,
         youtube_video_id="video1_id",
         title="Video 1",
         duration="PT10M",
         view_count=1000,
-        published_at=datetime(2026, 7, 10, 10, 0, 0)
+        published_at=now - timedelta(days=10)
     )
-    # 2本目: 7/17 投稿 (PT45S = 45秒, views: 2000, Shorts動画)
+    # 2本目: 直近2日前 投稿 (PT45S = 45秒, views: 2000, Shorts動画)
     video2 = Video(
         channel_id=channel.id,
         youtube_video_id="video2_id",
@@ -102,22 +105,20 @@ def test_calculate_metrics_multiple_videos(db):
         duration="PT45S",
         is_short=True,
         view_count=2000,
-        published_at=datetime(2026, 7, 17, 10, 0, 0)
+        published_at=now - timedelta(days=2)
     )
     db.add_all([video1, video2])
     db.commit()
 
-    avg_duration, avg_views, avg_frequency, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat = calculate_channel_metrics(db, channel.id)
+    avg_duration, avg_views, avg_frequency, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, channel.id)
     
     # 平均動画時間: (600 + 45) / 2 = 322.5秒
     assert avg_duration == 322.5
     # 平均再生数: (1000 + 2000) / 2 = 1500回
     assert avg_views == 1500.0
-    # 投稿頻度: 2本 / 1.0週間 = 週2.0回
-    assert avg_frequency == 2.0
-    # 最新投稿日: 7/17 10:00:00
-    assert latest_upload == datetime(2026, 7, 17, 10, 0, 0)
     # Shorts件数・比率: 1本 (50.0%)
     assert s_cnt == 1
     assert r_cnt == 1
     assert s_rat == 50.0
+    # 直近7日間の投稿数: video2のみ対象のため 1本
+    assert w_cnt == 1

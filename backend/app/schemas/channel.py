@@ -32,6 +32,7 @@ class ChannelResponse(BaseModel):
     regular_video_count: int = 0
     short_ratio: float = 0.0
     live_ratio: float = 0.0
+    weekly_video_count: int = 0
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

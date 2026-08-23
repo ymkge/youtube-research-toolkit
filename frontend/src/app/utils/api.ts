@@ -26,6 +26,7 @@ export interface Channel {
   regular_video_count?: number; // 通常動画本数
   short_ratio?: number; // Shorts割合 (%)
   live_ratio?: number; // LIVE割合 (%)
+  weekly_video_count?: number; // 直近1週間(7日間)投稿本数
   updated_at: string;
 }
 

@@ -334,6 +334,14 @@ export default function ChannelCard({
 
       {/* 分析メトリクス用チップ行 */}
       <div className={styles.chipsRow}>
+        <div 
+          className={`${styles.weeklyChip} ${(channel.weekly_video_count || 0) > 0 ? styles.weeklyActive : ''}`} 
+          title="直近7日間 (168時間) に投稿された動画本数"
+        >
+          <Flame className={styles.weeklyIcon} size={13} />
+          <span>直近7日: <strong>{channel.weekly_video_count ?? 0}本</strong></span>
+        </div>
+
         <div className={styles.durationChip} title="同期された動画の平均長さ">
           <Clock className={styles.durationIcon} size={13} />
           <span>動画長: <strong>{formatDuration(channel.average_video_duration)}</strong></span>

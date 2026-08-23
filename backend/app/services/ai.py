@@ -132,10 +132,14 @@ class AIService:
         context_parts = []
         context_parts.append(f"=== 分析対象競合チャンネル: {channel_data.get('title')} ===")
         context_parts.append(f"登録者数: {subscribers:,}人")
+        weekly_cnt = channel_data.get('weekly_video_count')
+        if weekly_cnt is None:
+            weekly_cnt = sum(1 for p in pub_dates if (now_date - p).days <= 7)
+
         context_parts.append(f"総再生数: {total_views:,}回")
         context_parts.append(f"平均動画再生数: {int(avg_views):,}回")
         context_parts.append(f"チャンネル登録率 (CV率): {conv_rate:.2f}% (再生{int(views_per_sub):,}回で1登録獲得)")
-        context_parts.append(f"投稿ペーストレンド: 直近30日間で{recent_30d_cnt}本投稿 / 平均投稿間隔: {avg_interval_days}日")
+        context_parts.append(f"投稿ペーストレンド: 直近7日間で{weekly_cnt}本投稿 | 直近30日間で{recent_30d_cnt}本投稿 / 平均投稿間隔: {avg_interval_days}日")
         context_parts.append(f"説明文: {channel_data.get('description', '') or ''}")
 
         if own_channel_data:

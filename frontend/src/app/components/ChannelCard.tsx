@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -282,10 +282,12 @@ export default function ChannelCard({
             )}
           </div>
 
-          {/* バッジ群 (自チャンネル & 急成長シグナル) */}
+          {/* バッジ群 (自チャンネル & 急成長シグナル & 衰退シグナル) */}
           {(channel.is_own_channel ||
             (channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100) ||
-            (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0)) && (
+            (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0) ||
+            (channel.daily_sub_growth !== undefined && channel.daily_sub_growth < 0) ||
+            (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate < 0)) && (
             <div className={styles.badgeRow}>
               {channel.is_own_channel && (
                 <div className={styles.ownBadge} title="比較基準の自チャンネル">
@@ -303,6 +305,18 @@ export default function ChannelCard({
                 <div className={`${styles.hotBadge} ${styles.viewHotBadge}`} title="前日比で総再生数が2.0%以上急増中！">
                   <Flame size={12} className={styles.viewHotIcon} />
                   <span>再生数 +{channel.daily_view_growth_rate.toFixed(1)}%</span>
+                </div>
+              )}
+              {channel.daily_sub_growth !== undefined && channel.daily_sub_growth < 0 && (
+                <div className={styles.decliningBadge} title="前日比でチャンネル登録者数が減少中（衰退傾向）">
+                  <TrendingDown size={12} className={styles.decliningIcon} />
+                  <span>登録者 {channel.daily_sub_growth.toLocaleString()}名</span>
+                </div>
+              )}
+              {channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate < 0 && (
+                <div className={`${styles.decliningBadge} ${styles.decliningViewBadge}`} title="前日比で総再生数が減少中">
+                  <TrendingDown size={12} className={styles.decliningIcon} />
+                  <span>再生数 {channel.daily_view_growth_rate.toFixed(1)}%</span>
                 </div>
               )}
             </div>

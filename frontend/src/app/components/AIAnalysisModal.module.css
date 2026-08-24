@@ -435,6 +435,50 @@
   font-weight: 500;
 }
 
+/* 📉 衰退チャンネル特記: 登録者減少要因 & 反面教師分析カード */
+.declineAnalysisCard {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(225, 29, 72, 0.12) 100%);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.15);
+  page-break-inside: avoid;
+}
+
+.declineAnalysisCard h4 {
+  margin: 0 0 0.55rem 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fb7185;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.declineAnalysisIcon {
+  color: #f43f5e;
+}
+
+.declineAnalysisBox {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #fecdd3;
+}
+
+.declineAnalysisBox p {
+  margin: 0 0 0.5rem 0;
+}
+
+.declineAnalysisBox ul {
+  margin: 0.25rem 0 0 1.2rem;
+  padding: 0;
+}
+
+.declineAnalysisBox li {
+  margin-bottom: 0.35rem;
+}
+
 /* 🚀 注目チャンネル特記: 直近再生数急増 & サムネイル分析カード */
 .recentGrowthCard {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.12) 100%);

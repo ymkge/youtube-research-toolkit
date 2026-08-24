@@ -26,7 +26,7 @@ export default function Home() {
   // フィルター＆ソート＆トレンド一括表示用ステート
   const [searchQuery, setSearchQuery] = useState('');
   const [rankFilter, setRankFilter] = useState<RankFilter>('ALL');
-  const [isHotFilterActive, setIsHotFilterActive] = useState<boolean>(false);
+  const [signalFilter, setSignalFilter] = useState<'ALL' | 'HOT' | 'DECLINING'>('ALL');
   const [sortBy, setSortBy] = useState<SortKey>('custom');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [isAllTrendExpanded, setIsAllTrendExpanded] = useState(false);
@@ -43,7 +43,7 @@ export default function Home() {
 
   // フィルター条件およびソート条件に基づいてチャンネル配列を動的に計算
   const filteredAndSortedChannels = React.useMemo(() => {
-    // 1. キーワードおよびランク/ピン留め/急成長シグナルによるフィルタリング
+    // 1. キーワードおよびランク/ピン留め/急成長・衰退シグナルによるフィルタリング
     const filtered = channels.filter((channel) => {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
@@ -52,10 +52,14 @@ export default function Home() {
         if (!matchTitle && !matchUrl) return false;
       }
 
-      if (isHotFilterActive) {
+      if (signalFilter === 'HOT') {
         const isSubHot = (channel as any).daily_sub_growth !== undefined && (channel as any).daily_sub_growth >= 100;
         const isViewHot = (channel as any).daily_view_growth_rate !== undefined && (channel as any).daily_view_growth_rate >= 2.0;
         if (!isSubHot && !isViewHot) return false;
+      } else if (signalFilter === 'DECLINING') {
+        const isSubDeclining = (channel as any).daily_sub_growth !== undefined && (channel as any).daily_sub_growth < 0;
+        const isViewDeclining = (channel as any).daily_view_growth_rate !== undefined && (channel as any).daily_view_growth_rate < 0;
+        if (!isSubDeclining && !isViewDeclining) return false;
       }
 
       const subs = channel.subscriber_count || 0;
@@ -110,12 +114,12 @@ export default function Home() {
 
       return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [channels, searchQuery, rankFilter, isHotFilterActive, sortBy, sortOrder]);
+  }, [channels, searchQuery, rankFilter, signalFilter, sortBy, sortOrder]);
 
   const resetFilters = () => {
     setSearchQuery('');
     setRankFilter('ALL');
-    setIsHotFilterActive(false);
+    setSignalFilter('ALL');
   };
 
   const handleShowAIAnalysis = async (channel: Channel, forceReanalyze: boolean = false) => {
@@ -387,6 +391,20 @@ export default function Home() {
                       >
                         📌 ピン留め
                       </button>
+                      <button
+                        className={`${styles.filterChip} ${styles.hotFilterChip} ${signalFilter === 'HOT' ? styles.hotChipActive : ''}`}
+                        onClick={() => setSignalFilter(signalFilter === 'HOT' ? 'ALL' : 'HOT')}
+                        title="前日比で登録者+100名以上または再生数+2.0%以上急増中のチャンネル"
+                      >
+                        🔥 急成長 ({channels.filter(c => ((c as any).daily_sub_growth ?? 0) >= 100 || ((c as any).daily_view_growth_rate ?? 0) >= 2.0).length})
+                      </button>
+                      <button
+                        className={`${styles.filterChip} ${styles.declineFilterChip} ${signalFilter === 'DECLINING' ? styles.declineChipActive : ''}`}
+                        onClick={() => setSignalFilter(signalFilter === 'DECLINING' ? 'ALL' : 'DECLINING')}
+                        title="前日比で登録者数が減少中の衰退チャンネル"
+                      >
+                        📉 衰退 ({channels.filter(c => ((c as any).daily_sub_growth ?? 0) < 0 || ((c as any).daily_view_growth_rate ?? 0) < 0).length})
+                      </button>
                     </div>
 
                     {/* トレンドグラフ一括制御（トグルボタン ＆ 指標選択ドロップダウンの一体化グループ） */}
@@ -423,16 +441,6 @@ export default function Home() {
                         </select>
                       </div>
                     </div>
-
-                    {/* 急成長シグナルフィルター (前日比登録者+100名以上 または 前日比再生数+2.0%以上) */}
-                    <button
-                      className={`${styles.hotFilterToggle} ${isHotFilterActive ? styles.hotFilterActive : ''}`}
-                      onClick={() => setIsHotFilterActive(!isHotFilterActive)}
-                      title="前日比登録者+100名以上、または前日比総再生数+2.0%以上の急成長シグナルが出ているチャンネルのみを絞り込み"
-                    >
-                      <Flame size={14} className={styles.hotFilterIcon} />
-                      <span>急成長のみ</span>
-                    </button>
 
                     {/* ソートコントロール */}
                     <div className={styles.sortControlGroup}>

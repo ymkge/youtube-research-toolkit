@@ -74,6 +74,7 @@ export interface OwnChannelPrescription {
 export interface AIAnalysisResponse {
   channel_summary: string;
   recent_growth_analysis?: string | null;
+  decline_reason_analysis?: string | null;
   growth_factor_detail?: GrowthFactorDetail | null;
   own_channel_prescription?: OwnChannelPrescription | null;
   featured_videos?: FeaturedVideoInfo[];

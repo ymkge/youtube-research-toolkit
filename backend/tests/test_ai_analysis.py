@@ -205,6 +205,39 @@ def test_analyze_channel_is_featured(mock_ai, client, db):
     assert call_kwargs[1].get("is_featured") is True
 
 @patch("app.api.endpoints.channels.ai_service")
+def test_analyze_channel_declining(mock_ai, client, db):
+    """
+    登録者減少チャンネル（衰退シグナル）の分析時、decline_reason_analysis が
+    正常にレスポンスへ含まれるかを検証。
+    """
+    c = Channel(
+        youtube_channel_id="UC_DECLINING_TEST",
+        title="Declining Channel",
+        sort_order=0
+    )
+    db.add(c)
+    db.flush()
+
+    # 前日比登録者減少データを作成 (-10名)
+    h1 = ChannelStatsHistory(channel_id=c.id, subscriber_count=1000, recorded_at=datetime.utcnow() - timedelta(days=1))
+    h2 = ChannelStatsHistory(channel_id=c.id, subscriber_count=990, recorded_at=datetime.utcnow())
+    db.add_all([h1, h2])
+    db.commit()
+
+    mock_ai.is_configured.return_value = True
+    declining_mock_resp = AIAnalysisResponse(
+        **{**MOCK_AI_RESPONSE, "decline_reason_analysis": "・更新間隔が過去1ヶ月空いたことによる離脱\n・既存コンテンツのマンネリ化"},
+        generated_at=datetime.utcnow()
+    )
+    mock_ai.analyze_channel_positioning.return_value = declining_mock_resp
+
+    response = client.post(f"/api/channels/{c.id}/analyze?force=true")
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["decline_reason_analysis"] is not None
+    assert "更新間隔が過去1ヶ月空いたこと" in res_json["decline_reason_analysis"]
+
+@patch("app.api.endpoints.channels.ai_service")
 def test_analyze_channel_is_featured_with_video_links(mock_ai, client, db):
     """
     注目フラグチャンネルの分析時、最注目動画のURLおよびIDが

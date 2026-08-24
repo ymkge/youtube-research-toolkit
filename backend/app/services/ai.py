@@ -215,6 +215,23 @@ class AIService:
 ==============================================================
 """
 
+        sub_growth = channel_data.get('daily_sub_growth') or 0
+        decline_instruction = ""
+        if sub_growth < 0:
+            context_parts.append(f"\n=== ⚠️ 【衰退シグナル検知】前日比でチャンネル登録者数が減少中 ({sub_growth:,}名) ===")
+            decline_instruction = f"""
+【📉 登録者減少（衰退傾向）チャンネル特記事項 ＆ 反面教師分析指示】
+このチャンネルは前日比で登録者数が減少 ({sub_growth:,}名) している衰退傾向にあります。
+「なぜユーザーの離脱・登録解除が起きているのか（投稿頻度の低下、動画内容のマンネリ化、アルゴリズム露出低下など）」の原因分析と、
+「自チャンネルが絶対に真似してはならない反面教師としての教訓アドバイス」を
+`decline_reason_analysis` フィールドに250文字以内で要点を『・』箇条書きで具体的に出力してください。
+"""
+        else:
+            decline_instruction = """
+【通常チャンネル注意事項】
+登録者減少フラグが立っていないため、`decline_reason_analysis` フィールドには必ず JSON の `null` を設定してください。
+"""
+
         featured_instruction = ""
         if is_featured:
             featured_instruction = """
@@ -252,6 +269,8 @@ class AIService:
 {knowledge_section}
 
 {featured_instruction}
+
+{decline_instruction}
 
 {own_prescription_instruction}
 

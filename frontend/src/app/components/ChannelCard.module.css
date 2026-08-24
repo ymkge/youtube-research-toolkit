@@ -404,6 +404,32 @@
   color: #ff4500;
 }
 
+.decliningBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(225, 29, 72, 0.2) 100%);
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  color: #fb7185;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  align-self: flex-start;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
+  white-space: nowrap;
+}
+
+.decliningViewBadge {
+  background: linear-gradient(135deg, rgba(217, 70, 239, 0.2) 0%, rgba(244, 63, 94, 0.18) 100%);
+  border-color: rgba(217, 70, 239, 0.45);
+  color: #e879f9;
+}
+
+.decliningIcon {
+  color: #f43f5e;
+}
+
 @keyframes pulseGlow {
   from {
     box-shadow: 0 0 5px rgba(255, 69, 0, 0.2);

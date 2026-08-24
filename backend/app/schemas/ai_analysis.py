@@ -51,6 +51,10 @@ class AIAnalysisResponse(BaseModel):
         default=None,
         description="【直近スパイク要因限定】注目フラグ時のみ生成。直近のヒット（スパイク）動画固有の一時的トリガーやサムネイルフックの個別勝因（250文字以内）。要点を『・』による箇条書きで簡潔に記述してください。注目フラグが無い場合は null。"
     )
+    decline_reason_analysis: Optional[str] = Field(
+        default=None,
+        description="【衰退要因・反面教師分析限定】登録者数減少チャンネル限定。なぜ登録解除やユーザー離脱・エンゲージメント低下が起きているかの原因分析と自チャンネルが避けるべき教訓（250文字以内）。要点を『・』による箇条書きで簡潔に記述してください。衰退フラグが無い場合は null。"
+    )
     growth_factor_detail: Optional[GrowthFactorDetail] = Field(
         default=None,
         description="急成長チャンネルの深掘り要因分析（サムネイル/タイトル勝因、投稿頻度の影響、チャンネル登録率）。注目フラグまたは急成長チャンネルの場合に出力。"

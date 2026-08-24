@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AIAnalysisResponse } from '../utils/api';
 import styles from './AIAnalysisModal.module.css';
-import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image, Info, Flame, ExternalLink, Play, Home, Target, Zap, CheckSquare } from 'lucide-react';
+import { Sparkles, Brain, AlertCircle, CheckCircle2, Trophy, ArrowRight, X, RefreshCw, FileText, Image, Info, Flame, ExternalLink, Play, Home, Target, Zap, CheckSquare, TrendingDown } from 'lucide-react';
 
 interface AIAnalysisModalProps {
   isOpen: boolean;
@@ -238,6 +238,19 @@ export default function AIAnalysisModal({
                   <div className={styles.summarySection}>
                     <p className={styles.summaryText}>{analysis.channel_summary}</p>
                   </div>
+
+                  {/* 📉 登録者減少・衰退要因 ＆ 反面教師アドバイス (衰退チャンネル時のみ動的挿入) */}
+                  {analysis.decline_reason_analysis && (
+                    <div className={styles.declineAnalysisCard}>
+                      <h4>
+                        <TrendingDown size={16} className={styles.declineAnalysisIcon} />
+                        <span>⚠️ 登録者減少要因 ＆ 反面教師アドバイス</span>
+                      </h4>
+                      <div className={styles.declineAnalysisBox}>
+                        {renderFormattedText(analysis.decline_reason_analysis)}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 🔥 急成長要因詳細セクション (注目・急成長チャンネル時のみ動的挿入) */}
                   {hasGrowthFactors && (

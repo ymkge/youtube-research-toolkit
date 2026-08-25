@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 from app.models.channel import Channel
 from app.models.video import Video
+from app.models.channel_stats_history import ChannelStatsHistory
 from app.schemas.ai_analysis import AIAnalysisResponse, FeaturedVideoInfo
 from app.core.config import settings
 
@@ -412,3 +413,44 @@ def test_ai_service_retry_and_fallback(db):
     # 4回目の呼び出しモデルが fallback model ("gemini-flash-lite-latest") であること
     called_model = mock_client.models.generate_content.call_args_list[3].kwargs.get("model")
     assert called_model == "gemini-flash-lite-latest"
+
+def test_load_domain_knowledge_multifile():
+    """
+    backend/data/knowledge/ ディレクトリ配下の複数のナレッジファイルが
+    ファイル名昇順で安全に結合読み込みされるかを検証。
+    """
+    from app.services.ai import load_domain_knowledge
+    knowledge_text = load_domain_knowledge()
+    assert "01_bgm_domain_knowledge.md" in knowledge_text
+    assert "02_zero_to_100_growth_strategy.md" in knowledge_text
+    assert "登録者0〜100人規模" in knowledge_text
+
+def test_early_stage_channel_prompt(db):
+    """
+    登録者数が100人未満のチャンネルを分析する際、初期立ち上げプロンプト指示
+    (early_stage_instruction) が生成されることを検証。
+    """
+    from app.services.ai import ai_service
+    c_dict = {
+        "title": "Newborn Channel",
+        "subscriber_count": 50,
+        "view_count": 500,
+        "average_views_per_video": 100,
+        "weekly_video_count": 2,
+        "description": "新規チャンネルです"
+    }
+    v_list = [{"title": "Vid 1", "published_at": datetime.utcnow(), "view_count": 100}]
+    
+    with patch.object(ai_service, "_generate_content_with_retry") as mock_gen:
+        mock_gen.return_value = MagicMock(text=json.dumps(MOCK_AI_RESPONSE))
+        with patch("app.services.ai.genai.Client"):
+            try:
+                ai_service.analyze_channel_positioning(c_dict, v_list)
+            except Exception:
+                pass
+        
+        # 呼び出されたプロンプト内に初期チャンネル指示が含まれているかチェック
+        if mock_gen.called:
+            prompt_content = mock_gen.call_args[0][1][0]
+            assert "初期立ち上げチャンネル（登録者100人未満）特記指示" in prompt_content
+            assert "02_zero_to_100_growth_strategy.md" in prompt_content

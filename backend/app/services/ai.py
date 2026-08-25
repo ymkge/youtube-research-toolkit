@@ -10,19 +10,63 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 from app.schemas.ai_analysis import AIAnalysisResponse, FeaturedVideoInfo
 
+from pathlib import Path
+
+MAX_FILE_SIZE_BYTES = 100 * 1024  # 100 KB
+MAX_TOTAL_CHARS = 50_000         # 50,000文字 (トークン数オーバーフロー保護)
+
 def load_domain_knowledge() -> str:
     """
-    app/data/domain_knowledge.txt から専門ドメイン知識を安全に読み込みます。
-    ファイルが存在しない場合は空文字を返します。
+    backend/data/knowledge/ 配下の *.md および *.txt ファイルを
+    ファイル名小文字昇順で安全に読み込み、RAGナレッジとして結合します。
+    ディレクトリが存在しない・空の場合は旧 domain_knowledge.txt へフォールバックします。
     """
-    file_path = os.path.join(os.path.dirname(__file__), "..", "data", "domain_knowledge.txt")
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return f.read().strip()
-        except Exception:
-            return ""
-    return ""
+    base_dir = Path(__file__).resolve().parent.parent / "data"
+    knowledge_dir = base_dir / "knowledge"
+    
+    knowledge_blocks = []
+    
+    if knowledge_dir.exists() and knowledge_dir.is_dir():
+        files = [
+            p for p in knowledge_dir.iterdir()
+            if p.is_file() and not p.name.startswith(".") and p.suffix.lower() in (".md", ".txt")
+        ]
+        files.sort(key=lambda p: p.name.lower())
+        
+        total_chars = 0
+        for file_path in files:
+            try:
+                if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
+                    print(f"[RAG Warning] Knowledge file {file_path.name} exceeds size limit (100KB). Skipping.")
+                    continue
+                    
+                content = file_path.read_text(encoding="utf-8", errors="replace").strip()
+                if not content:
+                    continue
+                
+                if total_chars + len(content) > MAX_TOTAL_CHARS:
+                    print(f"[RAG Warning] Total knowledge limit reached ({MAX_TOTAL_CHARS} chars). Skipping {file_path.name}.")
+                    break
+                    
+                block = f"--- Knowledge Source: {file_path.name} ---\n{content}"
+                knowledge_blocks.append(block)
+                total_chars += len(block)
+            except Exception as e:
+                print(f"[RAG Error] Failed to read {file_path.name}: {e}")
+                continue
+
+    # 旧ファイルへのフォールバック
+    if not knowledge_blocks:
+        fallback_file = base_dir / "domain_knowledge.txt"
+        if fallback_file.exists() and fallback_file.is_file():
+            try:
+                content = fallback_file.read_text(encoding="utf-8", errors="replace").strip()
+                if content:
+                    knowledge_blocks.append(f"--- Knowledge Source: domain_knowledge.txt ---\n{content}")
+            except Exception as e:
+                print(f"[RAG Error] Failed to read fallback file: {e}")
+
+    return "\n\n".join(knowledge_blocks)
 
 class AIService:
     def is_configured(self) -> bool:
@@ -262,11 +306,26 @@ class AIService:
 自チャンネル情報が入力されていないため、`own_channel_prescription` フィールドには必ず JSON の `null` を設定してください。
 """
 
+        target_subscribers = channel_data.get('subscriber_count') or 0
+        own_subscribers = own_channel_data.get('subscriber_count') if own_channel_data else None
+
+        early_stage_instruction = ""
+        if target_subscribers < 100 or (own_subscribers is not None and own_subscribers < 100):
+            early_stage_instruction = """
+【🌱 初期立ち上げチャンネル（登録者100人未満）特記指示】
+分析対象または自チャンネルは「登録者100人未満の初期立ち上げフェーズ」にあります。
+ドメインナレッジ「02_zero_to_100_growth_strategy.md」を最優先で参照し、以下の点を意識してアドバイスを出力してください：
+1. 「本数不足」ではなく「認知度・信頼感不足」が原因であることを踏まえ、誰に届けるか（属性＋具体悩み）を絞る『ペルソナ設定』と、同規模チャンネルで再生されている『資産テーマの横展開リサーチ』を優先的に推奨してください。
+2. 義理登録やショート乱発・広告による“数字だけの登録者”ではなく、次の動画も見てくれる自然なファンを集め『勝ちパターン』を確立する具体的なアドバイスを提示してください。
+"""
+
         prompt = f"""
 あなたはYouTube競合分析およびマーケティングのプロフェッショナルです。
 以下の「競合チャンネル情報」、「最新50件の動画パフォーマンス」、「最優先考慮すべき専門知識」、および「自チャンネル情報」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
 
 {knowledge_section}
+
+{early_stage_instruction}
 
 {featured_instruction}
 

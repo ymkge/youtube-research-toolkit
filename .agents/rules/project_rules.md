@@ -16,8 +16,11 @@
 ### 2.1 バックエンド (Python / FastAPI)
 - **バージョン**: Python 3.11+
 - **フレームワーク**: FastAPI (Asynchronous endpoints)
-- **データベース**: SQLite (SQLAlchemy 2.0+ & Alembic によるマイグレーション)
+- **データベース**: SQLite (SQLAlchemy 2.0+ & WALモード)
 - **データ解析/外部API**: `pandas`, `google-api-python-client` (YouTube Data API), `google-genai` (Gemini API)
+- **RAG ナレッジ管理**:
+  - `backend/data/knowledge/` 配下に `.md` や `.txt` ファイル（例: `01_...md`, `02_...md`）を配置するディレクトリ型ナレッジシステムを採用。
+  - ナレッジの追加・更新時はコードを直接改修せず、本ディレクトリ配下にマークダウンファイルを追加・編集すること。
 - **設計ルール**:
   - 型ヒント（Type Hints）をすべての関数と引数に明示すること。
   - スキーマ定義には `pydantic` (v2) を使用すること。

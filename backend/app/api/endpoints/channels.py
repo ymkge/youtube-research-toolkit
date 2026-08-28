@@ -122,9 +122,10 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
             ).first()
 
             if db_video:
-                # 既存動画の統計データ更新
+                # 既存動画の統計データを非破壊型 Upsert で安全更新
                 for key, value in video_data.items():
-                    setattr(db_video, key, value)
+                    if value is not None or getattr(db_video, key, None) is None:
+                        setattr(db_video, key, value)
                 db_video.updated_at = datetime.datetime.utcnow()
             else:
                 # 新規動画の追加
@@ -677,11 +678,53 @@ def fetch_missing_today_stats(db: Session = Depends(get_db)):
 
     db.commit()
 
+    # 動画リストの再同期も自動連動
+    for channel in all_channels:
+        try:
+            info = youtube_service.get_channel_info(channel.youtube_channel_id)
+            uploads_playlist_id = info.get("uploads_playlist_id") if info else None
+            if uploads_playlist_id:
+                sync_channel_videos(db, channel, uploads_playlist_id, import_limit=50)
+        except Exception as ex:
+            print(f"Video sync warning for {channel.title}: {ex}")
+
     return FetchMissingResponse(
-        message=f"本日未取得だった {len(updated_titles)} 件のチャンネルデータを手動補テン・保存しました。",
+        message=f"本日未取得だった {len(updated_titles)} 件のチャンネルデータおよび最新動画リストを補テン・同期しました。",
         fetched_count=len(updated_titles),
         updated_channels=updated_titles
     )
+
+
+@router.post("/sync-all-videos")
+def sync_all_channel_videos(import_limit: int = Query(100, ge=1, le=100), db: Session = Depends(get_db)):
+    """
+    登録中の全チャンネルについて、YouTube API から最新動画リストの一括同期を実行し、
+    直近7日投稿数等のメトリクスを最新化します。
+    """
+    if not youtube_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="YouTube API Key が設定されていません。"
+        )
+
+    all_channels = db.query(Channel).all()
+    synced_titles = []
+
+    for channel in all_channels:
+        try:
+            info = youtube_service.get_channel_info(channel.youtube_channel_id)
+            uploads_id = info.get("uploads_playlist_id") if info else None
+            if uploads_id:
+                sync_channel_videos(db, channel, uploads_id, import_limit=import_limit)
+                synced_titles.append(channel.title)
+        except Exception as e:
+            print(f"Failed to sync videos for {channel.title}: {e}")
+
+    return {
+        "message": f"全 {len(synced_titles)} 件のチャンネルの最新動画リストを正常に同期・最新化しました。",
+        "synced_count": len(synced_titles),
+        "synced_channels": synced_titles
+    }
 
 
 @router.get("/milestones", response_model=ChannelMilestonesResponse)

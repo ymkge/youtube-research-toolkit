@@ -220,6 +220,8 @@ export interface ComparisonChannelItem {
   history_count: number;
   subscriber_count?: number;
   is_pinned?: boolean;
+  daily_sub_growth?: number;
+  daily_view_growth_rate?: number;
 }
 
 export interface ComparisonTimelineEntry {

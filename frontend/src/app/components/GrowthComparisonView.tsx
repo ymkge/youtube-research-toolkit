@@ -93,13 +93,15 @@ export default function GrowthComparisonView() {
     }
   };
 
-  // ランク別およびピン留めのワンタップ一括選択ハンドラー
-  const selectByFilter = (filterType: '100k' | '10k' | '1k' | 'under1k' | 'pinned') => {
+  // ランク別、ピン留め、急成長、衰退のワンタップ一括選択ハンドラー
+  const selectByFilter = (filterType: '100k' | '10k' | '1k' | 'under1k' | 'pinned' | 'hot' | 'declining') => {
     if (!data) return;
     const matchedIds = data.channels
       .filter((c) => c.has_history)
       .filter((c) => {
         const subs = c.subscriber_count || 0;
+        const subGrowth = c.daily_sub_growth ?? 0;
+        const viewGrowthRate = c.daily_view_growth_rate ?? 0;
         switch (filterType) {
           case '100k':
             return subs >= 100000;
@@ -111,6 +113,10 @@ export default function GrowthComparisonView() {
             return subs < 1000;
           case 'pinned':
             return !!c.is_pinned;
+          case 'hot':
+            return subGrowth >= 100 || viewGrowthRate >= 2.0;
+          case 'declining':
+            return subGrowth < 0 || viewGrowthRate < 0;
           default:
             return true;
         }
@@ -289,6 +295,31 @@ export default function GrowthComparisonView() {
                 </button>
               </div>
 
+              <span className={styles.filterSectionLabel}>シグナル別一括選択:</span>
+              <div className={styles.quickFilterGrid} style={{ marginBottom: '0.6rem' }}>
+                <button
+                  onClick={() => selectByFilter('pinned')}
+                  className={`${styles.quickFilterBtn} ${styles.quickFilterBtnPinned}`}
+                  title="ピン留めされている注目チャンネルを全選択"
+                >
+                  📌 ピン留め
+                </button>
+                <button
+                  onClick={() => selectByFilter('hot')}
+                  className={`${styles.quickFilterBtn} ${styles.quickFilterBtnHot}`}
+                  title="前日比で登録者増(+100以上)または再生数成長率(+2.0%以上)の急成長チャンネルを全選択"
+                >
+                  🔥 急成長
+                </button>
+                <button
+                  onClick={() => selectByFilter('declining')}
+                  className={`${styles.quickFilterBtn} ${styles.quickFilterBtnDeclining}`}
+                  title="前日比で登録者または再生数が減少している衰退チャンネルを全選択"
+                >
+                  📉 衰退
+                </button>
+              </div>
+
               <span className={styles.filterSectionLabel}>規模別一括選択:</span>
               <div className={styles.quickFilterGrid}>
                 <button onClick={() => selectByFilter('100k')} className={styles.quickFilterBtn} title="登録者10万人以上のチャンネルを全選択">
@@ -302,9 +333,6 @@ export default function GrowthComparisonView() {
                 </button>
                 <button onClick={() => selectByFilter('under1k')} className={styles.quickFilterBtn} title="登録者1,000人未満のチャンネルを全選択">
                   🥉 1千未満
-                </button>
-                <button onClick={() => selectByFilter('pinned')} className={styles.quickFilterBtn} title="ピン留めされているチャンネルを全選択">
-                  📌 ピン留め
                 </button>
               </div>
             </div>

@@ -62,6 +62,11 @@ def test_get_channels_comparison_success(client, db):
     assert "dash_pattern" in data["channels"][0]
     assert data["channels"][0]["dash_pattern"] == "none"
 
+    # チャンネルAの前日比成長データ (50名増, +100.0%再生数増) の検証
+    cA_info = next(c for c in data["channels"] if c["id"] == cA.id)
+    assert cA_info["daily_sub_growth"] == 50
+    assert cA_info["daily_view_growth_rate"] == 100.0
+
     # チャンネルCの has_history が False であることを検証
     c_info = next(c for c in data["channels"] if c["id"] == cC.id)
     assert c_info["has_history"] is False

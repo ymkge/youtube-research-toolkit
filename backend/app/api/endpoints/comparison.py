@@ -64,6 +64,20 @@ def get_channels_comparison(db: Session = Depends(get_db)):
         )
 
         has_history = len(histories) > 0
+
+        # 直近の前日比成長データ (daily_sub_growth / daily_view_growth_rate) の算出
+        daily_sub_growth = 0
+        daily_view_growth_rate = 0.0
+        if len(histories) >= 2:
+            prev_sub = histories[-2].subscriber_count or 0
+            curr_sub = histories[-1].subscriber_count or 0
+            daily_sub_growth = curr_sub - prev_sub
+
+            prev_views = histories[-2].view_count or 0
+            curr_views = histories[-1].view_count or 0
+            if prev_views > 0:
+                daily_view_growth_rate = round(((curr_views - prev_views) / prev_views) * 100.0, 2)
+
         channel_list.append({
             "id": channel.id,
             "title": channel.title,
@@ -76,6 +90,8 @@ def get_channels_comparison(db: Session = Depends(get_db)):
             "history_count": len(histories),
             "subscriber_count": channel.subscriber_count or 0,
             "is_pinned": channel.is_pinned,
+            "daily_sub_growth": daily_sub_growth,
+            "daily_view_growth_rate": daily_view_growth_rate,
         })
 
         if not has_history:

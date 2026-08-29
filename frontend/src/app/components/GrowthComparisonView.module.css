@@ -222,8 +222,44 @@
 }
 
 .quickFilterBtnTop:hover {
-  background: rgba(245, 158, 11, 0.28);
-  border-color: rgba(245, 158, 11, 0.7);
+  background: rgba(245, 158, 11, 0.3);
+  border-color: #f59e0b;
+  color: #ffffff;
+}
+
+.quickFilterBtnPinned {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #facc15;
+}
+
+.quickFilterBtnPinned:hover {
+  background: rgba(234, 179, 8, 0.3);
+  border-color: #facc15;
+  color: #ffffff;
+}
+
+.quickFilterBtnHot {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.quickFilterBtnHot:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.quickFilterBtnDeclining {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+}
+
+.quickFilterBtnDeclining:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #3b82f6;
   color: #ffffff;
 }
 

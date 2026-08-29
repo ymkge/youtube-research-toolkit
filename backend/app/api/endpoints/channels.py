@@ -240,12 +240,33 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
     res.weekly_video_count = w_cnt
     return res
 
+def sync_parent_channel_stats(db: Session, channel_id: int):
+    """
+    指定チャンネルの ChannelStatsHistory から最新 recorded_at のレコードを取得し、
+    親 Channel テーブルの subscriber_count / view_count / video_count を 100% 強制同期します。
+    """
+    latest_history = (
+        db.query(ChannelStatsHistory)
+        .filter(ChannelStatsHistory.channel_id == channel_id)
+        .order_by(ChannelStatsHistory.recorded_at.desc())
+        .first()
+    )
+    if latest_history:
+        channel = db.query(Channel).filter(Channel.id == channel_id).first()
+        if channel:
+            channel.subscriber_count = latest_history.subscriber_count
+            channel.view_count = latest_history.view_count
+            channel.video_count = latest_history.video_count
+            db.flush()
+
 @router.get("/", response_model=List[ChannelResponse])
-def get_all_channels(db: Session = Depends(get_db)):
+def get_channels(db: Session = Depends(get_db)):
     """
-    全競合チャンネルをソート順に従って取得し、動画統計メトリクスを動的に計算して返却します。
+    登録されているすべてのチャンネル一覧と、
+    各チャンネルの算出指標（前日比増加数・割合・投稿頻度など）を返します。
     """
-    channels = db.query(Channel).order_by(Channel.is_pinned.desc(), Channel.sort_order.asc(), Channel.id.asc()).all()
+    channels = db.query(Channel).order_by(Channel.sort_order.asc(), Channel.id.asc()).all()
+
     if not channels:
         return []
 
@@ -267,6 +288,7 @@ def get_all_channels(db: Session = Depends(get_db)):
         history_map[h.channel_id].append(h)
 
     res_list = []
+    need_commit = False
     for c in channels:
         avg_dur, avg_v, avg_f, latest_u, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, c.id)
         c.average_video_duration = avg_dur
@@ -274,8 +296,18 @@ def get_all_channels(db: Session = Depends(get_db)):
         c.average_upload_frequency = avg_f
         c.latest_video_published_at = latest_u
 
-        # 前日比登録者増加数 & 総再生数成長率(%)の計算 (直近2件の差分)
         ch_histories = history_map.get(c.id, [])
+
+        # 最新履歴が存在する場合、親Channelのカラムを最新数値と完全に同調補正 (セルフヒーリング)
+        if ch_histories:
+            latest_h = ch_histories[0]
+            if (c.subscriber_count != latest_h.subscriber_count or
+                c.view_count != latest_h.view_count or
+                c.video_count != latest_h.video_count):
+                sync_parent_channel_stats(db, c.id)
+                need_commit = True
+
+        # 前日比登録者増加数 & 総再生数成長率(%)の計算 (直近2件の差分)
         sub_growth = 0
         view_growth_rate = 0.0
         if len(ch_histories) >= 2:

@@ -120,6 +120,49 @@ def test_delete_channel(client, db):
     assert db.query(Channel).filter(Channel.id == c.id).first() is None
     assert db.query(Video).filter(Video.channel_id == c.id).first() is None
 
+def test_sync_parent_channel_stats_on_kpi_mismatch(client, db):
+    """
+    親 Channel のカラム値が過去のままで ChannelStatsHistory の最新値と乖離している場合、
+    GET /api/channels 呼び出し時に最新値へ自動同調補正（セルフヒーリング）されることを検証します。
+    """
+    c = Channel(
+        youtube_channel_id="UC_MISMATCH",
+        title="Mismatch Channel",
+        subscriber_count=30,   # 古い親データ
+        view_count=3240,
+        video_count=64
+    )
+    db.add(c)
+    db.flush()
+
+    h_latest = ChannelStatsHistory(
+        channel_id=c.id,
+        subscriber_count=38,   # 最新履歴データ
+        view_count=4056,
+        video_count=73,
+        recorded_at=datetime.utcnow().date()
+    )
+    db.add(h_latest)
+    db.commit()
+
+    # GET /api/channels/ 呼び出し
+    res = client.get("/api/channels/")
+    assert res.status_code == 200
+
+    data = res.json()
+    target_c = next(item for item in data if item["id"] == c.id)
+
+    # レスポンスの数値が最新履歴（38, 4056, 73）に同調補正されていることを検証
+    assert target_c["subscriber_count"] == 38
+    assert target_c["view_count"] == 4056
+    assert target_c["video_count"] == 73
+
+    # DB 内の親 Channel レコードも修復されていることを検証 (セッションキャッシュをクエリで再取得)
+    repaired_c = db.query(Channel).filter(Channel.id == c.id).first()
+    assert repaired_c.subscriber_count == 38
+    assert repaired_c.view_count == 4056
+    assert repaired_c.video_count == 73
+
 def test_toggle_own_channel(client, db):
     """
     POST /api/channels/{id}/toggle-own のトグル切り替えおよび他チャンネルの単一選択排他制御を検証します。

@@ -22,6 +22,7 @@ class Channel(Base):
     is_own_channel = Column(Boolean, default=False)
     ai_analysis = Column(Text, nullable=True)
     ai_analysis_generated_at = Column(DateTime, nullable=True)
+    videos_synced_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     # 1対多のリレーションシップ (チャンネル削除時に紐づく動画も削除)

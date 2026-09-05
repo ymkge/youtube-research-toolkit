@@ -139,6 +139,7 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
     channel.average_views_per_video = avg_views
     channel.average_upload_frequency = avg_freq
     channel.latest_video_published_at = latest_upload
+    channel.videos_synced_at = datetime.datetime.utcnow()
     channel.updated_at = datetime.datetime.utcnow()
     db.commit()
 

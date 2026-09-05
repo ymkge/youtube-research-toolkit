@@ -255,3 +255,20 @@ def test_get_channel_history(client, db):
     assert len(data) == 2
     assert data[0]["recorded_at"] == "2026-07-22"
     assert data[1]["recorded_at"] == "2026-07-23"
+
+def test_sync_channel_videos_sets_videos_synced_at(client, db):
+    """
+    sync_channel_videos 実行時に、videos_synced_at タイムスタンプが正しく自動更新されるかを検証します。
+    """
+    from app.api.endpoints.channels import sync_channel_videos
+    c = Channel(youtube_channel_id="UC_VID_SYNC", title="Vid Sync Test", sort_order=0)
+    db.add(c)
+    db.commit()
+
+    assert c.videos_synced_at is None
+
+    # 動画同期関数を安全呼び出し (uploads_playlist_id=None の場合は API リクエストをスキップして指標のみ同期)
+    sync_channel_videos(db, c, uploads_playlist_id=None)
+
+    db.refresh(c)
+    assert c.videos_synced_at is not None

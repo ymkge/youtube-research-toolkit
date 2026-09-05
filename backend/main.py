@@ -65,6 +65,13 @@ def run_migrations():
             db.execute(text("ALTER TABLE channels ADD COLUMN is_own_channel BOOLEAN DEFAULT 0"))
             db.commit()
             print("Migration: 'is_own_channel' column added successfully.")
+
+        # videos_synced_at カラムの追加
+        if 'videos_synced_at' not in columns:
+            print("Migration: Adding 'videos_synced_at' column to 'channels' table...")
+            db.execute(text("ALTER TABLE channels ADD COLUMN videos_synced_at DATETIME"))
+            db.commit()
+            print("Migration: 'videos_synced_at' column added successfully.")
             
     except Exception as e:
         print(f"Migration warning: {e}")
@@ -140,7 +147,7 @@ def health_check():
 async def auto_sync_videos_background():
     """
     起動後にバックグラウンドで全チャンネルの動画データを YouTube API から非同期に同期します。
-    API 制限 (Quota) 回避のため、最後に更新（updated_at）してから 12時間以上経過したチャンネルのみ同期。
+    API 制限 (Quota) 回避のため、動画が最後に同期されてから (videos_synced_at) 12時間以上経過したチャンネルのみ同期。
     """
     import asyncio
     import datetime
@@ -158,8 +165,8 @@ async def auto_sync_videos_background():
         threshold = now - datetime.timedelta(hours=12)
         
         for channel in channels:
-            # 12時間以上更新されていない場合
-            if not channel.updated_at or channel.updated_at < threshold:
+            # 動画専用の最終同期日時 (videos_synced_at) が 12時間以上古い場合のみ実行
+            if not channel.videos_synced_at or channel.videos_synced_at < threshold:
                 print(f"Auto-Sync: Automatically synchronizing videos for channel '{channel.title}'...")
                 try:
                     if youtube_service.is_configured():

@@ -139,6 +139,22 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
     channel.average_views_per_video = avg_views
     channel.average_upload_frequency = avg_freq
     channel.latest_video_published_at = latest_upload
+
+    # 実態優先自動補正 (セルフヒーリング & Max Guard)
+    # DB内の全動画レコードから再生数合計と本数を直接算出
+    vids = db.query(Video).filter(Video.channel_id == channel.id).all()
+    if vids:
+        sum_views = sum(v.view_count for v in vids if v.view_count)
+        vid_count = len(vids)
+
+        # 1. 総再生数の補正 (APIの統計情報が古い過去のラグ値であっても、動画個別の再生数合計SUM(views)を優先採用)
+        if sum_views > (channel.view_count or 0):
+            channel.view_count = sum_views
+
+        # 2. 動画数の補正 (APIが古い過去の動画数を返してきても、DB内の動画本数を下限値として保証)
+        if vid_count > (channel.video_count or 0):
+            channel.video_count = vid_count
+
     channel.videos_synced_at = datetime.datetime.utcnow()
     channel.updated_at = datetime.datetime.utcnow()
     db.commit()
@@ -244,7 +260,8 @@ def register_channel(payload: ChannelCreateRequest, response: Response, db: Sess
 def sync_parent_channel_stats(db: Session, channel_id: int):
     """
     指定チャンネルの ChannelStatsHistory から最新 recorded_at のレコードを取得し、
-    親 Channel テーブルの subscriber_count / view_count / video_count を 100% 強制同期します。
+    親 Channel テーブルの subscriber_count / view_count / video_count を同期補正します。
+    YouTube API の統計遅延に対して、Video テーブルの個別再生数合計 SUM(views) 及び本数 COUNT(videos) との最大値 (Max Guard) で安全修復します。
     """
     latest_history = (
         db.query(ChannelStatsHistory)
@@ -252,13 +269,27 @@ def sync_parent_channel_stats(db: Session, channel_id: int):
         .order_by(ChannelStatsHistory.recorded_at.desc())
         .first()
     )
-    if latest_history:
-        channel = db.query(Channel).filter(Channel.id == channel_id).first()
-        if channel:
-            channel.subscriber_count = latest_history.subscriber_count
-            channel.view_count = latest_history.view_count
-            channel.video_count = latest_history.video_count
-            db.flush()
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if channel:
+        vids = db.query(Video).filter(Video.channel_id == channel_id).all()
+        sum_views = sum(v.view_count for v in vids if v.view_count) if vids else 0
+        vid_count = len(vids) if vids else 0
+
+        target_sub = latest_history.subscriber_count if latest_history else (channel.subscriber_count or 0)
+        target_view = latest_history.view_count if latest_history else (channel.view_count or 0)
+        target_video = latest_history.video_count if latest_history else (channel.video_count or 0)
+
+        # 実態数値 (SUM of Video views & COUNT of videos) との比較補正
+        channel.subscriber_count = target_sub
+        channel.view_count = max(target_view, sum_views, channel.view_count or 0)
+        channel.video_count = max(target_video, vid_count, channel.video_count or 0)
+
+        # 最新履歴 (ChannelStatsHistory) の最新日付レコードも親 Channel の実態修復値と 100% 完全同期
+        if latest_history:
+            latest_history.view_count = channel.view_count
+            latest_history.video_count = channel.video_count
+
+        db.flush()
 
 @router.get("/", response_model=List[ChannelResponse])
 def get_channels(db: Session = Depends(get_db)):
@@ -440,6 +471,9 @@ def get_channel_history(channel_id: int, db: Session = Depends(get_db)):
             detail="指定されたチャンネルが見つかりませんでした。"
         )
     
+    # 親 Channel カラムと ChannelStatsHistory の自動動的修復 (セルフヒーリング)
+    sync_parent_channel_stats(db, channel_id)
+
     history = db.query(ChannelStatsHistory).filter(
         ChannelStatsHistory.channel_id == channel_id
     ).order_by(ChannelStatsHistory.recorded_at.asc()).all()

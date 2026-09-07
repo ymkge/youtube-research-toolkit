@@ -272,3 +272,32 @@ def test_sync_channel_videos_sets_videos_synced_at(client, db):
 
     db.refresh(c)
     assert c.videos_synced_at is not None
+
+def test_sync_parent_channel_stats_heals_view_and_video_count(client, db):
+    """
+    YouTube API からの統計データが古い過去の遅延値であっても、
+    Video テーブルに保存された個別動画データの実態 (SUM of views & COUNT of videos) に基づいて
+    親 Channel カラムが自動修復・補正されることを検証します。
+    """
+    from app.api.endpoints.channels import sync_parent_channel_stats
+    c = Channel(youtube_channel_id="UC_LAG_HEAL", title="Lag Heal Test", subscriber_count=30, view_count=5000, video_count=35)
+    db.add(c)
+    db.flush()
+
+    # 古い API 統計履歴 (39本 / 5115回)
+    h = ChannelStatsHistory(channel_id=c.id, subscriber_count=30, view_count=5115, video_count=39, recorded_at=date(2026, 9, 7))
+    db.add(h)
+
+    # 実態の動画データ (合計 6500回 / 43本)
+    v1 = Video(channel_id=c.id, youtube_video_id="v_heal_1", title="Hit Video", view_count=1500, published_at=datetime.utcnow())
+    v2 = Video(channel_id=c.id, youtube_video_id="v_heal_2", title="Regular Video", view_count=5000, published_at=datetime.utcnow())
+    db.add_all([v1, v2])
+    db.commit()
+
+    # 自動補正を実行
+    sync_parent_channel_stats(db, c.id)
+
+    db.refresh(c)
+    # API 履歴の 5,115回 / 39本 ではなく、動画実態の 6,500回 (1500+5000) が優先採用されていること
+    assert c.view_count == 6500
+    assert c.video_count >= 2

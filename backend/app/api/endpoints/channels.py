@@ -330,14 +330,14 @@ def get_channels(db: Session = Depends(get_db)):
 
         ch_histories = history_map.get(c.id, [])
 
-        # 最新履歴が存在する場合、親Channelのカラムを最新数値と完全に同調補正 (セルフヒーリング)
+        # 最新履歴が存在する場合、親Channelおよび最新履歴カラムを最新実態数値と完全に同調補正 (セルフヒーリング)
         if ch_histories:
+            sync_parent_channel_stats(db, c.id)
+            need_commit = True
+            # メモリ上の ch_histories[0] の再生数・動画数も補正後の親数値と即座に同調
             latest_h = ch_histories[0]
-            if (c.subscriber_count != latest_h.subscriber_count or
-                c.view_count != latest_h.view_count or
-                c.video_count != latest_h.video_count):
-                sync_parent_channel_stats(db, c.id)
-                need_commit = True
+            latest_h.view_count = c.view_count
+            latest_h.video_count = c.video_count
 
         # 前日比登録者増加数 & 総再生数成長率(%)の計算 (直近2件の差分)
         sub_growth = 0

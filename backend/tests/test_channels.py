@@ -301,3 +301,39 @@ def test_sync_parent_channel_stats_heals_view_and_video_count(client, db):
     # API 履歴の 5,115回 / 39本 ではなく、動画実態の 6,500回 (1500+5000) が優先採用されていること
     assert c.view_count == 6500
     assert c.video_count >= 2
+
+def test_sync_parent_channel_stats_heals_latest_history_and_growth_rate(client, db):
+    """
+    latest_history (最新日履歴) も親 Channel とアトミック修復され、
+    誤ったマイナス成長率が防止されて正しくプラス成長率が計算されることを検証します。
+    """
+    from app.api.endpoints.channels import sync_parent_channel_stats
+    c = Channel(youtube_channel_id="UC_ATOMIC_HEAL", title="Atomic Heal Test", subscriber_count=48, view_count=6136, video_count=84)
+    db.add(c)
+    db.flush()
+
+    # 09/07 (前日): 5880回
+    h1 = ChannelStatsHistory(channel_id=c.id, subscriber_count=47, view_count=5880, video_count=83, recorded_at=date(2026, 9, 7))
+    # 09/08 (本日): APIラグにより古い 5205回 が記録されたケース
+    h2 = ChannelStatsHistory(channel_id=c.id, subscriber_count=48, view_count=5205, video_count=84, recorded_at=date(2026, 9, 8))
+    
+    v1 = Video(channel_id=c.id, youtube_video_id="v_atomic_1", title="Hit Vid", view_count=6136, published_at=datetime.utcnow())
+    db.add_all([h1, h2, v1])
+    db.commit()
+
+    # アトミック補正実行
+    sync_parent_channel_stats(db, c.id)
+
+    db.refresh(h2)
+    # h2 の再生数も親と同じ 6136回 へ修復されていること
+    assert h2.view_count == 6136
+
+    # API 経由での成長率取得テスト
+    response = client.get("/api/channels/")
+    assert response.status_code == 200
+    
+    target_data = next((item for item in response.json() if item["id"] == c.id), None)
+    assert target_data is not None
+    # 5205 vs 5880 による誤マイナス (-11.5%) ではなく、6136 vs 5880 によるプラス (+4.35%) と表示されること
+    assert target_data["view_count"] == 6136
+    assert target_data["daily_view_growth_rate"] > 0

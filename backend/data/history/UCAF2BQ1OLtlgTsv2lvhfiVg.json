@@ -1,68 +1,68 @@
 [
   {
     "date": "2026-08-29",
-    "subscriber_count": 4210,
-    "view_count": 723313,
-    "video_count": 94
+    "subscribers": 4210,
+    "views": 769976,
+    "videos": 101
   },
   {
     "date": "2026-08-30",
-    "subscriber_count": 4230,
-    "view_count": 728675,
-    "video_count": 95
+    "subscribers": 4230,
+    "views": 769976,
+    "videos": 101
   },
   {
     "date": "2026-08-31",
-    "subscriber_count": 4240,
-    "view_count": 732471,
-    "video_count": 95
+    "subscribers": 4240,
+    "views": 769976,
+    "videos": 101
   },
   {
     "date": "2026-09-01",
-    "subscriber_count": 4260,
-    "view_count": 733809,
-    "video_count": 95
+    "subscribers": 4260,
+    "views": 771131,
+    "videos": 102
   },
   {
     "date": "2026-09-02",
-    "subscriber_count": 4290,
-    "view_count": 743289,
-    "video_count": 96
+    "subscribers": 4290,
+    "views": 771629,
+    "videos": 103
   },
   {
     "date": "2026-09-03",
-    "subscriber_count": 4310,
-    "view_count": 749083,
-    "video_count": 97
+    "subscribers": 4310,
+    "views": 772632,
+    "videos": 104
   },
   {
     "date": "2026-09-04",
-    "subscriber_count": 4320,
-    "view_count": 749083,
-    "video_count": 33
+    "subscribers": 4320,
+    "views": 773535,
+    "videos": 105
   },
   {
     "date": "2026-09-05",
-    "subscriber_count": 4330,
-    "view_count": 754282,
-    "video_count": 34
+    "subscribers": 4330,
+    "views": 773843,
+    "videos": 107
   },
   {
     "date": "2026-09-06",
-    "subscriber_count": 4340,
-    "view_count": 762618,
-    "video_count": 36
+    "subscribers": 4340,
+    "views": 774997,
+    "videos": 108
   },
   {
     "date": "2026-09-07",
-    "subscriber_count": 4350,
-    "view_count": 764868,
-    "video_count": 37
+    "subscribers": 4350,
+    "views": 776781,
+    "videos": 110
   },
   {
     "date": "2026-09-08",
-    "subscriber_count": 4360,
-    "view_count": 776801,
-    "video_count": 111
+    "subscribers": 4360,
+    "views": 776801,
+    "videos": 111
   }
 ]

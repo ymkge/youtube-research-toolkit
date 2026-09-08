@@ -1,122 +1,128 @@
 [
   {
+    "date": "2026-08-19",
+    "subscribers": 21400,
+    "views": 4515434,
+    "videos": 71
+  },
+  {
     "date": "2026-08-20",
-    "subscriber_count": 21500,
-    "view_count": 3883910,
-    "video_count": 71
+    "subscribers": 21500,
+    "views": 4515434,
+    "videos": 71
   },
   {
     "date": "2026-08-21",
-    "subscriber_count": 21500,
-    "view_count": 3894748,
-    "video_count": 71
+    "subscribers": 21500,
+    "views": 4515434,
+    "videos": 71
   },
   {
     "date": "2026-08-22",
-    "subscriber_count": 21600,
-    "view_count": 3916662,
-    "video_count": 71
+    "subscribers": 21600,
+    "views": 4515434,
+    "videos": 71
   },
   {
     "date": "2026-08-23",
-    "subscriber_count": 21700,
-    "view_count": 3935532,
-    "video_count": 71
+    "subscribers": 21700,
+    "views": 4515434,
+    "videos": 71
   },
   {
     "date": "2026-08-24",
-    "subscriber_count": 21800,
-    "view_count": 3963053,
-    "video_count": 71
+    "subscribers": 21800,
+    "views": 4515434,
+    "videos": 71
   },
   {
     "date": "2026-08-25",
-    "subscriber_count": 21900,
-    "view_count": 3963053,
-    "video_count": 71
+    "subscribers": 21900,
+    "views": 4521430,
+    "videos": 72
   },
   {
     "date": "2026-08-26",
-    "subscriber_count": 22000,
-    "view_count": 3994591,
-    "video_count": 72
+    "subscribers": 22000,
+    "views": 4521430,
+    "videos": 72
   },
   {
     "date": "2026-08-27",
-    "subscriber_count": 22000,
-    "view_count": 4029899,
-    "video_count": 72
+    "subscribers": 22000,
+    "views": 4521430,
+    "videos": 72
   },
   {
     "date": "2026-08-28",
-    "subscriber_count": 22100,
-    "view_count": 4056915,
-    "video_count": 72
+    "subscribers": 22100,
+    "views": 4521430,
+    "videos": 72
   },
   {
     "date": "2026-08-29",
-    "subscriber_count": 22200,
-    "view_count": 4098608,
-    "video_count": 72
+    "subscribers": 22200,
+    "views": 4530105,
+    "videos": 73
   },
   {
     "date": "2026-08-30",
-    "subscriber_count": 22200,
-    "view_count": 4134749,
-    "video_count": 73
+    "subscribers": 22200,
+    "views": 4530105,
+    "videos": 73
   },
   {
     "date": "2026-08-31",
-    "subscriber_count": 22400,
-    "view_count": 4176518,
-    "video_count": 73
+    "subscribers": 22400,
+    "views": 4530105,
+    "videos": 73
   },
   {
     "date": "2026-09-01",
-    "subscriber_count": 22500,
-    "view_count": 4199382,
-    "video_count": 73
+    "subscribers": 22500,
+    "views": 4530105,
+    "videos": 73
   },
   {
     "date": "2026-09-02",
-    "subscriber_count": 22600,
-    "view_count": 4276345,
-    "video_count": 73
+    "subscribers": 22600,
+    "views": 4541300,
+    "videos": 74
   },
   {
     "date": "2026-09-03",
-    "subscriber_count": 22700,
-    "view_count": 4296431,
-    "video_count": 74
+    "subscribers": 22700,
+    "views": 4541300,
+    "videos": 74
   },
   {
     "date": "2026-09-04",
-    "subscriber_count": 22800,
-    "view_count": 4320265,
-    "video_count": 74
+    "subscribers": 22800,
+    "views": 4541300,
+    "videos": 74
   },
   {
     "date": "2026-09-05",
-    "subscriber_count": 22900,
-    "view_count": 4320265,
-    "video_count": 74
+    "subscribers": 22900,
+    "views": 4541300,
+    "videos": 74
   },
   {
     "date": "2026-09-06",
-    "subscriber_count": 22900,
-    "view_count": 4436037,
-    "video_count": 73
+    "subscribers": 22900,
+    "views": 4545483,
+    "videos": 75
   },
   {
     "date": "2026-09-07",
-    "subscriber_count": 23000,
-    "view_count": 4467496,
-    "video_count": 75
+    "subscribers": 23000,
+    "views": 4545483,
+    "videos": 75
   },
   {
     "date": "2026-09-08",
-    "subscriber_count": 23100,
-    "view_count": 4545483,
-    "video_count": 75
+    "subscribers": 23100,
+    "views": 4545483,
+    "videos": 75
   }
 ]

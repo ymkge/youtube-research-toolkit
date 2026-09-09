@@ -2,8 +2,9 @@ name: Daily YouTube Stats Collector
 
 on:
   schedule:
-    # 毎日日本時間午前10時 (UTC 01:00) に自動実行 (YouTube集計反映確定後の安全時間帯)
+    # 日本時間午前10時 (UTC 01:00) および 午後15時 (UTC 06:00) に自動実行 (遅延リカバリ用)
     - cron: '0 1 * * *'
+    - cron: '0 6 * * *'
   workflow_dispatch: # 手動実行も可能にする
 
 jobs:
@@ -41,3 +42,9 @@ jobs:
           git add backend/data/history/
           # 差分がある場合のみコミット・プッシュを実行 (競合防止のため pull --rebase を挟む)
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update daily YouTube stats [skip ci]" && git pull --rebase origin main && git push)
+
+      - name: Verify API Data Quality & Trigger Gmail Alert on Anomaly
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          python backend/app/scripts/fetch_stats.py --json --exit-on-anomaly

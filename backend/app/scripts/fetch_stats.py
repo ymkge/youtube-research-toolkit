@@ -211,9 +211,12 @@ def run_json_mode(exit_on_anomaly: bool = False):
             api_views = stats["view_count"]
             api_vids = stats["video_count"]
 
-            if (prev_views > 0 and api_views < prev_views) or (prev_vids > 0 and api_vids < prev_vids):
-                print(f"[ANOMALY DETECTED] Channel '{title}' ({youtube_channel_id}): YouTube API returned lagging stats "
-                      f"(views: {api_views:,} < prev: {prev_views:,}, vids: {api_vids} < prev: {prev_vids}). Max Guard activated.")
+            view_dropped = (prev_views > 0 and api_views < prev_views)
+            vid_dropped = (prev_vids > 0 and api_vids < prev_vids)
+
+            if view_dropped:
+                print(f"[CRITICAL ANOMALY] Channel '{title}' ({youtube_channel_id}): YouTube API returned lagging views "
+                      f"({api_views:,} < prev: {prev_views:,}). Max Guard activated.")
                 anomalies_detected_count += 1
                 anomalous_channels.append({
                     "id": youtube_channel_id,
@@ -223,6 +226,9 @@ def run_json_mode(exit_on_anomaly: bool = False):
                     "api_vids": api_vids,
                     "prev_vids": prev_vids
                 })
+            elif vid_dropped:
+                print(f"[NOTICE] Channel '{title}' ({youtube_channel_id}): Video count decreased "
+                      f"({api_vids} < prev: {prev_vids}, videos deleted/privated). Max Guard activated.")
 
             guarded_subs = max(api_subs, prev_subs)
             guarded_views = max(api_views, prev_views)
@@ -261,6 +267,15 @@ def run_json_mode(exit_on_anomaly: bool = False):
         for ac in anomalous_channels:
             print(f"    - {ac['title']} ({ac['id']}): API views={ac['api_views']:,} (guarded to {ac['prev_views']:,})")
     print("=======================================================\n")
+
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        try:
+            with open(github_output, "a", encoding="utf-8") as f:
+                f.write(f"anomaly_detected={'true' if anomalies_detected_count > 0 else 'false'}\n")
+                f.write(f"anomaly_count={anomalies_detected_count}\n")
+        except Exception as ex:
+            print(f"Warning: Failed to write to GITHUB_OUTPUT: {ex}")
 
     if exit_on_anomaly and anomalies_detected_count > 0:
         print(f"Exit Warning: {anomalies_detected_count} API anomalies detected. Raising exit code 1 for GitHub Actions Gmail Alert.")

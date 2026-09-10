@@ -18,6 +18,33 @@ def parse_iso8601_duration(duration_str: Optional[str]) -> int:
     seconds = int(match.group(4) or 0)
     return days * 86400 + hours * 3600 + minutes * 60 + seconds
 
+def parse_iso_datetime(dt_str: Optional[str]) -> Optional[datetime.datetime]:
+    """
+    YouTube API の publishedAt 文字列を安全・確実にパースします。
+    - 5桁マイクロ秒 (例: 2026-05-27T05:55:44.96018Z)
+    - 3桁ミリ秒、6桁マイクロ秒、ミリ秒なし
+    - 'Z' 終端またはタイムゾーンオフセット (+09:00 等)
+    Python 3.10, 3.11, 3.12 の全バージョンで互換性を保証し、SQLite 用に timezone-naive で返却します。
+    """
+    if not dt_str or not isinstance(dt_str, str):
+        return None
+    try:
+        s = dt_str.strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+
+        def _pad_microseconds(match):
+            frac = match.group(1)
+            padded = (frac + "000000")[:6]
+            return f".{padded}"
+
+        s = re.sub(r'\.(\d+)', _pad_microseconds, s)
+        dt = datetime.datetime.fromisoformat(s)
+        return dt.replace(tzinfo=None)
+    except Exception as ex:
+        print(f"Warning: Failed to parse ISO datetime string '{dt_str}': {ex}")
+        return None
+
 def is_live_video(item: dict) -> bool:
     """YouTube API のレスポンス項目からライブ配信 (LIVE/生放送/アーカイブ) を100%高精度判別します (プレミア公開動画は除外)"""
     snippet = item.get("snippet", {})
@@ -140,10 +167,7 @@ class YouTubeService:
 
         # 開設日のパース
         published_at_str = snippet.get("publishedAt")
-        published_at = None
-        if published_at_str:
-            # Z をタイムゾーン表記に置換してパースし、SQLiteとの互換性のために timezone-naive に変換
-            published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
+        published_at = parse_iso_datetime(published_at_str)
 
         return {
             "youtube_channel_id": channel_data.get("id"),
@@ -197,9 +221,7 @@ class YouTubeService:
                     content_details = item.get("contentDetails", {})
 
                     published_at_str = snippet.get("publishedAt")
-                    published_at = None
-                    if published_at_str:
-                        published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
+                    published_at = parse_iso_datetime(published_at_str)
 
                     results[cid] = {
                         "youtube_channel_id": cid,
@@ -275,9 +297,7 @@ class YouTubeService:
                 snippet = item.get("snippet", {})
                 video_id = snippet.get("resourceId", {}).get("videoId")
                 published_at_str = snippet.get("publishedAt")
-                published_at = None
-                if published_at_str:
-                    published_at = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
+                published_at = parse_iso_datetime(published_at_str)
 
                 videos.append({
                     "youtube_video_id": video_id,

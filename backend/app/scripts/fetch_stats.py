@@ -277,6 +277,28 @@ def run_json_mode(exit_on_anomaly: bool = False):
         except Exception as ex:
             print(f"Warning: Failed to write to GITHUB_OUTPUT: {ex}")
 
+    step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if step_summary:
+        try:
+            with open(step_summary, "a", encoding="utf-8") as f:
+                f.write(f"## 📊 YouTube Stats Collection Summary ({today_str})\n\n")
+                f.write(f"- **Success**: {success_count} / {len(channels_to_fetch)}\n")
+                f.write(f"- **Errors**: {error_count}\n")
+                f.write(f"- **API Anomalies Guarded**: {anomalies_detected_count}\n\n")
+
+                if anomalous_channels:
+                    f.write("### ⚠️ YouTube API 集計遅延（ラグ）検知レポート\n")
+                    f.write("以下のチャンネルで YouTube API からの取得再生数が前日を下回っていたため、Max Guard により前日以上の安全な数値へ自動保護して保存しました。\n\n")
+                    f.write("| チャンネル名 | チャンネルID | YouTube API 取得値 | Max Guard 保護後の値 |\n")
+                    f.write("| :--- | :--- | :--- | :--- |\n")
+                    for ac in anomalous_channels:
+                        f.write(f"| {ac['title']} | `{ac['id']}` | {ac['api_views']:,} 回 | **{ac['prev_views']:,} 回** |\n")
+                    f.write("\n")
+                else:
+                    f.write("✅ すべてのチャンネルが前日比で正常に集計・保存されました。\n\n")
+        except Exception as ex:
+            print(f"Warning: Failed to write to GITHUB_STEP_SUMMARY: {ex}")
+
     if exit_on_anomaly and anomalies_detected_count > 0:
         print(f"Exit Warning: {anomalies_detected_count} API anomalies detected. Raising exit code 1 for GitHub Actions Gmail Alert.")
         sys.exit(1)

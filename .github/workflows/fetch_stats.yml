@@ -20,7 +20,6 @@ jobs:
         uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.12'
-          cache: 'pip'
 
       - name: Install Dependencies
         run: |
@@ -43,9 +42,3 @@ jobs:
           git add backend/data/history/
           # 差分がある場合のみコミット・プッシュを実行 (競合防止のため pull --rebase を挟む)
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update daily YouTube stats [skip ci]" && git pull --rebase origin main && git push)
-
-      - name: Check Anomaly and Trigger Gmail Alert
-        if: steps.fetch_stats.outputs.anomaly_detected == 'true'
-        run: |
-          echo "::error::Critical API view anomalies detected (${{ steps.fetch_stats.outputs.anomaly_count }} channels). Triggering Gmail alert."
-          exit 1

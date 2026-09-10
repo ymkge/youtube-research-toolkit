@@ -103,6 +103,9 @@ def test_run_json_mode_anomaly_separation(tmp_path, monkeypatch):
     github_output_file = tmp_path / "github_output.txt"
     monkeypatch.setenv("GITHUB_OUTPUT", str(github_output_file))
 
+    step_summary_file = tmp_path / "step_summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(step_summary_file))
+
     # Run without exit_on_anomaly
     run_json_mode(exit_on_anomaly=False)
 
@@ -111,6 +114,13 @@ def test_run_json_mode_anomaly_separation(tmp_path, monkeypatch):
     content = github_output_file.read_text(encoding="utf-8")
     assert "anomaly_detected=true" in content
     assert "anomaly_count=1" in content
+
+    # GITHUB_STEP_SUMMARY should exist and contain Markdown summary
+    assert step_summary_file.exists()
+    summary_md = step_summary_file.read_text(encoding="utf-8")
+    assert "YouTube Stats Collection Summary" in summary_md
+    assert "YouTube API 集計遅延（ラグ）検知レポート" in summary_md
+    assert "UC_ANOMALY_CH1" in summary_md
 
     # Check CH1 guarded views
     with open(ch1_file, "r") as f:

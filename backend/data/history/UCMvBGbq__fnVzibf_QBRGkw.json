@@ -130,5 +130,14 @@
     "subscriber_count": 23200,
     "view_count": 4522123,
     "video_count": 75
+  },
+  {
+    "date": "2026-09-10",
+    "subscriber_count": 23300,
+    "view_count": 4599449,
+    "video_count": 75,
+    "subscribers": 23300,
+    "views": 4599449,
+    "videos": 75
   }
 ]

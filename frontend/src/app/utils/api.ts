@@ -27,6 +27,9 @@ export interface Channel {
   short_ratio?: number; // Shorts割合 (%)
   live_ratio?: number; // LIVE割合 (%)
   weekly_video_count?: number; // 直近1週間(7日間)投稿本数
+  anomaly_type?: string | null; // 異常検知タイプ ("ad_suspected" | "artificial_sub_growth" | "ghost_views" | null)
+  anomaly_score?: number | null; // 疑わしさスコア (0.0 ~ 1.0)
+  anomaly_reason?: string | null; // 検知理由
   updated_at: string;
 }
 

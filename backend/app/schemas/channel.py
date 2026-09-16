@@ -33,6 +33,9 @@ class ChannelResponse(BaseModel):
     short_ratio: float = 0.0
     live_ratio: float = 0.0
     weekly_video_count: int = 0
+    anomaly_type: Optional[str] = None
+    anomaly_score: Optional[float] = None
+    anomaly_reason: Optional[str] = None
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

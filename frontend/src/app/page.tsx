@@ -8,12 +8,13 @@ import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { MilestoneModal } from './components/MilestoneModal';
-import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2, Trophy, Flame } from 'lucide-react';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2, Trophy, Flame, Megaphone } from 'lucide-react';
 import styles from './page.module.css';
 
 type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
 type SortOrder = 'desc' | 'asc';
 type RankFilter = 'ALL' | 'DIAMOND' | 'GOLD' | 'SILVER' | 'BRONZE' | 'PINNED';
+type SignalFilter = 'ALL' | 'HOT' | 'DECLINING' | 'AD_SUSPECTED';
 type TrendMetric = 'views' | 'subscribers' | 'videos';
 
 export default function Home() {
@@ -26,7 +27,8 @@ export default function Home() {
   // フィルター＆ソート＆トレンド一括表示用ステート
   const [searchQuery, setSearchQuery] = useState('');
   const [rankFilter, setRankFilter] = useState<RankFilter>('ALL');
-  const [signalFilter, setSignalFilter] = useState<'ALL' | 'HOT' | 'DECLINING'>('ALL');
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>('ALL');
+  const [excludeAnomaly, setExcludeAnomaly] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>('custom');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [isAllTrendExpanded, setIsAllTrendExpanded] = useState(false);
@@ -52,6 +54,10 @@ export default function Home() {
         if (!matchTitle && !matchUrl) return false;
       }
 
+      if (excludeAnomaly && channel.anomaly_type) {
+        return false;
+      }
+
       if (signalFilter === 'HOT') {
         const isSubHot = (channel as any).daily_sub_growth !== undefined && (channel as any).daily_sub_growth >= 100;
         const isViewHot = (channel as any).daily_view_growth_rate !== undefined && (channel as any).daily_view_growth_rate >= 2.0;
@@ -60,6 +66,8 @@ export default function Home() {
         const isSubDeclining = (channel as any).daily_sub_growth !== undefined && (channel as any).daily_sub_growth < 0;
         const isViewDeclining = (channel as any).daily_view_growth_rate !== undefined && (channel as any).daily_view_growth_rate < 0;
         if (!isSubDeclining && !isViewDeclining) return false;
+      } else if (signalFilter === 'AD_SUSPECTED') {
+        if (!channel.anomaly_type) return false;
       }
 
       const subs = channel.subscriber_count || 0;
@@ -114,12 +122,13 @@ export default function Home() {
 
       return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [channels, searchQuery, rankFilter, signalFilter, sortBy, sortOrder]);
+  }, [channels, searchQuery, rankFilter, signalFilter, excludeAnomaly, sortBy, sortOrder]);
 
   const resetFilters = () => {
     setSearchQuery('');
     setRankFilter('ALL');
     setSignalFilter('ALL');
+    setExcludeAnomaly(false);
   };
 
   const handleShowAIAnalysis = async (channel: Channel, forceReanalyze: boolean = false) => {
@@ -404,6 +413,20 @@ export default function Home() {
                         title="前日比で登録者数が減少中の衰退チャンネル"
                       >
                         📉 衰退 ({channels.filter(c => ((c as any).daily_sub_growth ?? 0) < 0 || ((c as any).daily_view_growth_rate ?? 0) < 0).length})
+                      </button>
+                      <button
+                        className={`${styles.filterChip} ${styles.adFilterChip} ${signalFilter === 'AD_SUSPECTED' ? styles.adChipActive : ''}`}
+                        onClick={() => setSignalFilter(signalFilter === 'AD_SUSPECTED' ? 'ALL' : 'AD_SUSPECTED')}
+                        title="広告出稿や不自然な急増が疑われるチャンネルのみ表示"
+                      >
+                        📢 広告疑い ({channels.filter(c => Boolean(c.anomaly_type)).length})
+                      </button>
+                      <button
+                        className={`${styles.excludeAnomalyBtn} ${excludeAnomaly ? styles.excludeAnomalyBtnActive : ''}`}
+                        onClick={() => setExcludeAnomaly(!excludeAnomaly)}
+                        title={excludeAnomaly ? "広告・異常疑いの除外を解除" : "広告出稿や業者依頼が疑われるチャンネルを一覧から除外"}
+                      >
+                        {excludeAnomaly ? '🚫 異常疑いを除外中' : '🛡️ 異常疑いを除外'}
                       </button>
                     </div>
 

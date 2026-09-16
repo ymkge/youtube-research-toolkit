@@ -12,7 +12,8 @@ from app.schemas.milestones import ChannelMilestonesResponse, ChannelMilestoneIt
 from app.schemas.ai_analysis import AIAnalysisResponse
 from app.services.ai import ai_service
 from app.services.youtube import youtube_service
-from typing import List
+from app.services.anomaly_detection import detect_channel_anomalies
+from typing import List, Optional
 import json
 import datetime
 import re
@@ -35,16 +36,19 @@ def parse_iso8601_duration(duration_str: str) -> int:
     return hours * 3600 + minutes * 60 + seconds
 
 def _ensure_utc(dt: datetime.datetime) -> datetime.datetime:
+    """datetime オブジェクトをタイムゾーン付き UTC に正規化します。"""
     if dt.tzinfo is None:
         return dt.replace(tzinfo=datetime.timezone.utc)
     return dt.astimezone(datetime.timezone.utc)
 
-def calculate_channel_metrics(db: Session, channel_id: int):
+def calculate_channel_metrics(db: Session, channel_id: int, videos: Optional[List[Video]] = None):
     """
-    チャンネルに紐づく動画データから「平均動画時間」「平均再生数」「平均投稿頻度(週単位)」「最新投稿日時」
+    指定されたチャンネルの直近動画から各種分析指標
+    （平均動画時間、動画平均再生数、週あたり平均投稿頻度、最新投稿日時）、
     「Shorts本数」「LIVE本数」「通常動画本数」「Shorts割合」「LIVE割合」および「直近1週間(7日間)投稿本数」を算出します。
     """
-    videos = db.query(Video).filter(Video.channel_id == channel_id).all()
+    if videos is None:
+        videos = db.query(Video).filter(Video.channel_id == channel_id).all()
     if not videos:
         return None, None, None, None, 0, 0, 0, 0.0, 0.0, 0
 
@@ -319,10 +323,24 @@ def get_channels(db: Session = Depends(get_db)):
             history_map[h.channel_id] = []
         history_map[h.channel_id].append(h)
 
+    # たった1回のSQLクエリで全チャンネルの動画を一括取得 (N+1問題の完全排除)
+    all_videos = (
+        db.query(Video)
+        .filter(Video.channel_id.in_(channel_ids))
+        .order_by(Video.channel_id.asc(), Video.published_at.desc())
+        .all()
+    )
+    video_map = {}
+    for v in all_videos:
+        if v.channel_id not in video_map:
+            video_map[v.channel_id] = []
+        video_map[v.channel_id].append(v)
+
     res_list = []
     need_commit = False
     for c in channels:
-        avg_dur, avg_v, avg_f, latest_u, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, c.id)
+        ch_videos = video_map.get(c.id, [])
+        avg_dur, avg_v, avg_f, latest_u, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, c.id, videos=ch_videos)
         c.average_video_duration = avg_dur
         c.average_views_per_video = avg_v
         c.average_upload_frequency = avg_f
@@ -353,6 +371,9 @@ def get_channels(db: Session = Depends(get_db)):
                 growth_rate = ((latest_view - prev_view) / prev_view) * 100.0
                 view_growth_rate = round(growth_rate, 2)
 
+        # 広告出稿・外部業者ブースト等の異常検知を実行 (インメモリ高速判定)
+        anomaly = detect_channel_anomalies(c, ch_videos, ch_histories)
+
         item_res = ChannelResponse.model_validate(c)
         item_res.daily_sub_growth = sub_growth
         item_res.daily_view_growth_rate = view_growth_rate
@@ -362,6 +383,9 @@ def get_channels(db: Session = Depends(get_db)):
         item_res.short_ratio = s_rat
         item_res.live_ratio = l_rat
         item_res.weekly_video_count = w_cnt
+        item_res.anomaly_type = anomaly.anomaly_type
+        item_res.anomaly_score = anomaly.anomaly_score
+        item_res.anomaly_reason = anomaly.anomaly_reason
         res_list.append(item_res)
 
     return res_list

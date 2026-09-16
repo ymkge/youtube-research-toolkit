@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -282,8 +282,9 @@ export default function ChannelCard({
             )}
           </div>
 
-          {/* バッジ群 (自チャンネル & 急成長シグナル & 衰退シグナル) */}
+          {/* バッジ群 (自チャンネル & 急成長シグナル & 衰退シグナル & 異常・広告疑いシグナル) */}
           {(channel.is_own_channel ||
+            Boolean(channel.anomaly_type) ||
             (channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100) ||
             (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0) ||
             (channel.daily_sub_growth !== undefined && channel.daily_sub_growth < 0) ||
@@ -293,6 +294,34 @@ export default function ChannelCard({
                 <div className={styles.ownBadge} title="比較基準の自チャンネル">
                   <Home size={11} className={styles.ownBadgeIcon} />
                   <span>自チャンネル</span>
+                </div>
+              )}
+              {/* 異常・広告検知バッジ */}
+              {channel.anomaly_type === 'ad_suspected' && (
+                <div 
+                  className={styles.adSuspectedBadge} 
+                  title={channel.anomaly_reason || "広告出稿・プロモーション流入による一時的ブーストの可能性が高いです"}
+                >
+                  <Megaphone size={12} className={styles.adIcon} />
+                  <span>📢 広告疑い</span>
+                </div>
+              )}
+              {channel.anomaly_type === 'artificial_sub_growth' && (
+                <div 
+                  className={styles.artificialSubBadge} 
+                  title={channel.anomaly_reason || "再生数増加を伴わない登録者急増が検知されました"}
+                >
+                  <AlertTriangle size={12} className={styles.artificialSubIcon} />
+                  <span>⚠️ 登録急増アラート</span>
+                </div>
+              )}
+              {channel.anomaly_type === 'ghost_views' && (
+                <div 
+                  className={styles.ghostViewsBadge} 
+                  title={channel.anomaly_reason || "エンゲージメントを伴わない機械的再生の疑いがあります"}
+                >
+                  <Ghost size={12} className={styles.ghostIcon} />
+                  <span>👻 機械的再生の疑い</span>
                 </div>
               )}
               {channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100 && (

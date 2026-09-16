@@ -319,6 +319,19 @@ class AIService:
 2. 義理登録やショート乱発・広告による“数字だけの登録者”ではなく、次の動画も見てくれる自然なファンを集め『勝ちパターン』を確立する具体的なアドバイスを提示してください。
 """
 
+        anomaly_type = channel_data.get('anomaly_type')
+        anomaly_reason = channel_data.get('anomaly_reason')
+        anomaly_instruction = ""
+        if anomaly_type:
+            context_parts.append(f"\n=== ⚠️ 【異常値・プロモーション検知アラート】 {anomaly_reason} ===")
+            anomaly_instruction = f"""
+【⚠️ 重要：プロモーション・異常上昇検知アラート】
+当システムの統計分析により、このチャンネルには以下の異常値が検知されています：
+「{anomaly_reason}」
+再生数や登録者数の一時的な急増は、コンテンツ自体の企画力・自然なバズ（オーガニック）ではなく、広告出稿（プロモーション）または外部ブースト・購入による影響である可能性が極めて高いです。
+ポジショニング分析や勝因分析を行う際は、この急増を純粋なコンテンツの力と過大評価せず、プロモーション要因を考慮した客観的かつ慎重な評価を行ってください。
+"""
+
         prompt = f"""
 あなたはYouTube競合分析およびマーケティングのプロフェッショナルです。
 以下の「競合チャンネル情報」、「最新50件の動画パフォーマンス」、「最優先考慮すべき専門知識」、および「自チャンネル情報」を分析し、自チャンネルの運営に役立つ「ポジショニング分析レポート」を日本語で作成してください。
@@ -326,6 +339,8 @@ class AIService:
 {knowledge_section}
 
 {early_stage_instruction}
+
+{anomaly_instruction}
 
 {featured_instruction}
 

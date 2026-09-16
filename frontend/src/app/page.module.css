@@ -256,6 +256,48 @@
   box-shadow: 0 0 12px rgba(244, 63, 94, 0.3);
 }
 
+.adFilterChip {
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.adChipActive {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.2) 100%) !important;
+  border: 1px solid #f59e0b !important;
+  color: #fbbf24 !important;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+.excludeAnomalyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: #181818;
+  border: 1px dashed #444444;
+  color: #888888;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.excludeAnomalyBtn:hover {
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+.excludeAnomalyBtnActive {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
 .trendControlGroup {
   display: inline-flex;
   align-items: center;

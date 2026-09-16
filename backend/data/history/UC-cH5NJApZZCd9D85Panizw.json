@@ -1,8 +1,11 @@
 [
   {
     "date": "2026-09-16",
-    "subscriber_count": 2020,
-    "view_count": 626072,
-    "video_count": 25
+    "subscriber_count": 2030,
+    "view_count": 615740,
+    "video_count": 25,
+    "subscribers": 2030,
+    "views": 615740,
+    "videos": 25
   }
 ]

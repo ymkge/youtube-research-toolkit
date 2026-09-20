@@ -354,4 +354,24 @@ export async function toggleOwnChannel(channelId: number): Promise<Channel> {
   return res.json();
 }
 
+/**
+ * 登録中の全チャンネルについて、YouTube API から最新のメタデータ（概要欄・タイトル等）を一括同期します。
+ */
+export async function syncAllChannelMetadata(): Promise<{
+  message: string;
+  synced_count: number;
+  synced_channels: string[];
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/sync-all-metadata`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'チャンネル情報の同期に失敗しました。');
+  }
+  return res.json();
+}
+
+
+
 

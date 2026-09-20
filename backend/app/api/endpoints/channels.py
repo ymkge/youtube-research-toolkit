@@ -533,13 +533,12 @@ def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = D
     if not force and db_channel.ai_analysis and db_channel.ai_analysis_generated_at:
         now = datetime.datetime.utcnow()
         analysis_gen_time = db_channel.ai_analysis_generated_at.replace(tzinfo=None)
-        video_sync_time = db_channel.updated_at.replace(tzinfo=None) if db_channel.updated_at else None
-
         # 条件1: 24時間以内であるか
         is_within_24h = (now - analysis_gen_time) <= datetime.timedelta(hours=24)
         
-        # 条件2: 動画同期による更新が入っていないか (analysis_gen_time >= video_sync_time)
-        is_not_stale_by_sync = (video_sync_time is None) or (analysis_gen_time >= video_sync_time)
+        # 条件2: 動画同期による更新が入っていないか (videos_synced_at を優先比較)
+        sync_reference_time = db_channel.videos_synced_at.replace(tzinfo=None) if db_channel.videos_synced_at else (db_channel.updated_at.replace(tzinfo=None) if db_channel.updated_at else None)
+        is_not_stale_by_sync = (sync_reference_time is None) or (analysis_gen_time >= sync_reference_time)
 
         if is_within_24h and is_not_stale_by_sync:
             try:
@@ -813,6 +812,79 @@ def sync_all_channel_videos(import_limit: int = Query(100, ge=1, le=100), db: Se
 
     return {
         "message": f"全 {len(synced_titles)} 件のチャンネルの最新動画リストを正常に同期・最新化しました。",
+        "synced_count": len(synced_titles),
+        "synced_channels": synced_titles
+    }
+
+
+@router.post("/sync-all-metadata")
+def sync_all_channel_metadata(db: Session = Depends(get_db)):
+    """
+    登録中の全チャンネルについて、YouTube API から最新のメタデータ（概要欄・タイトル・アイコン・カスタムURL・国）
+    および最新統計（Max Guard適用）を一括取得して最新化します。
+    ユーザー設定（自チャンネル、ピン留め、ソート順）およびAI分析キャッシュは安全に保護されます。
+    """
+    if not youtube_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="YouTube API Key が設定されていません。"
+        )
+
+    all_channels = db.query(Channel).all()
+    if not all_channels:
+        return {
+            "message": "登録されているチャンネルがありません。",
+            "synced_count": 0,
+            "synced_channels": []
+        }
+
+    # チャンネルIDとハンドルのマッピング作成
+    target_cids = [c.youtube_channel_id for c in all_channels if c.youtube_channel_id]
+    channel_handles_map = {c.youtube_channel_id: c.custom_url for c in all_channels if c.custom_url}
+
+    # 一括バッチ取得 (最大50件/1リクエスト、hl=ja)
+    batch_info_map = youtube_service.get_channels_info_batch(target_cids, channel_handles_map)
+
+    synced_titles = []
+    now_utc = datetime.datetime.utcnow()
+
+    for channel in all_channels:
+        cid = channel.youtube_channel_id
+        info = batch_info_map.get(cid)
+        if not info:
+            continue
+
+        # 1. 基本メタデータのホワイトリスト更新 (ユーザー設定カラム is_own_channel, is_pinned, sort_order は不変)
+        if info.get("description") is not None:
+            channel.description = info["description"]
+        if info.get("title"):
+            channel.title = info["title"]
+        if info.get("thumbnail_url"):
+            channel.thumbnail_url = info["thumbnail_url"]
+        if info.get("custom_url"):
+            channel.custom_url = info["custom_url"]
+        if info.get("country"):
+            channel.country = info["country"]
+
+        # 2. 統計情報の Max Guard 更新（数値減少デグレ防止）
+        api_subs = info.get("subscriber_count", 0)
+        api_views = info.get("view_count", 0)
+        api_vids = info.get("video_count", 0)
+
+        if api_subs > (channel.subscriber_count or 0):
+            channel.subscriber_count = api_subs
+        if api_views > (channel.view_count or 0):
+            channel.view_count = api_views
+        if api_vids > (channel.video_count or 0):
+            channel.video_count = api_vids
+
+        channel.updated_at = now_utc
+        synced_titles.append(channel.title)
+
+    db.commit()
+
+    return {
+        "message": f"全 {len(synced_titles)} 件のチャンネル情報（概要欄・タイトル等）を最新化しました。",
         "synced_count": len(synced_titles),
         "synced_channels": synced_titles
     }

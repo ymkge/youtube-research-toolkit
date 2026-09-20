@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import styles from './SyncStatusBanner.module.css';
-import { SyncStatusResponse, fetchSyncStatus, fetchMissingTodayStats } from '../utils/api';
+import { SyncStatusResponse, fetchSyncStatus, fetchMissingTodayStats, syncAllChannelMetadata } from '../utils/api';
 
 interface SyncStatusBannerProps {
   onRefreshData?: () => void;
@@ -12,6 +12,7 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = ({ onRefreshDat
   const [statusData, setStatusData] = useState<SyncStatusResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [fetchingMissing, setFetchingMissing] = useState<boolean>(false);
+  const [syncingMetadata, setSyncingMetadata] = useState<boolean>(false);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -50,6 +51,21 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = ({ onRefreshDat
     }
   };
 
+  const handleSyncMetadata = async () => {
+    try {
+      setSyncingMetadata(true);
+      const result = await syncAllChannelMetadata();
+      alert(result.message);
+      if (onRefreshData) {
+        onRefreshData();
+      }
+    } catch (err: any) {
+      alert(`チャンネル情報同期エラー: ${err.message || '失敗しました。'}`);
+    } finally {
+      setSyncingMetadata(false);
+    }
+  };
+
   if (loading || !statusData) {
     return null;
   }
@@ -63,6 +79,18 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = ({ onRefreshDat
             <span>
               本日 ({statusData.today}) のデータ同期完了 ({statusData.updated_count} / {statusData.total_channels} 件)
             </span>
+          </div>
+
+          <div className={styles.actionGroup}>
+            <button
+              onClick={handleSyncMetadata}
+              disabled={syncingMetadata}
+              className={styles.syncMetaBtn}
+              title="YouTube APIから全チャンネルの最新の概要欄・タイトル・アイコンを一括取得"
+            >
+              <span className={syncingMetadata ? styles.spinning : ''}>ℹ️</span>
+              {syncingMetadata ? '情報更新中...' : 'チャンネル情報(概要欄等)を最新化'}
+            </button>
           </div>
         </div>
       ) : (
@@ -91,6 +119,16 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = ({ onRefreshDat
             >
               <span className={fetchingMissing ? styles.spinning : ''}>🔄</span>
               {fetchingMissing ? 'データを取得中...' : '今すぐデータを取得'}
+            </button>
+
+            <button
+              onClick={handleSyncMetadata}
+              disabled={syncingMetadata}
+              className={styles.syncMetaBtn}
+              title="YouTube APIから全チャンネルの最新の概要欄・タイトル・アイコンを一括取得"
+            >
+              <span className={syncingMetadata ? styles.spinning : ''}>ℹ️</span>
+              {syncingMetadata ? '情報更新中...' : '概要欄等を最新化'}
             </button>
           </div>
         </div>

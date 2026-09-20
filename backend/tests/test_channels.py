@@ -337,3 +337,98 @@ def test_sync_parent_channel_stats_heals_latest_history_and_growth_rate(client, 
     # 5205 vs 5880 による誤マイナス (-11.5%) ではなく、6136 vs 5880 によるプラス (+4.35%) と表示されること
     assert target_data["view_count"] == 6136
     assert target_data["daily_view_growth_rate"] > 0
+
+
+@patch("app.api.endpoints.channels.youtube_service")
+def test_sync_all_channel_metadata(mock_youtube, client, db):
+    """
+    全チャンネルのメタデータ（概要欄・タイトル等）一括同期APIのテスト。
+    - 概要欄が日本語の最新データに更新されること
+    - is_own_channel, is_pinned などのユーザー設定が維持されること
+    - ai_analysis キャッシュが破棄されないこと
+    - 統計が Max Guard で安全に更新されること
+    """
+    mock_youtube.is_configured.return_value = True
+
+    # 1. チャンネルのセットアップ
+    c1 = Channel(
+        youtube_channel_id="UC_SYNC_META_1",
+        title="Old English Title",
+        description="Old English Description",
+        custom_url="@oldsync1",
+        subscriber_count=100,
+        view_count=5000,
+        video_count=10,
+        is_pinned=True,
+        is_own_channel=True,
+        sort_order=5
+    )
+    # AI分析キャッシュ付きチャンネル
+    gen_time = datetime(2026, 9, 20, 10, 0, 0)
+    c2 = Channel(
+        youtube_channel_id="UC_SYNC_META_2",
+        title="Channel 2",
+        description="Old Desc 2",
+        subscriber_count=200,
+        view_count=10000,
+        video_count=20,
+        ai_analysis='{"title_summary": "Test Summary"}',
+        ai_analysis_generated_at=gen_time,
+        videos_synced_at=gen_time
+    )
+    db.add_all([c1, c2])
+    db.commit()
+
+    # 2. YouTube API のバッチレスポンスをモック
+    mock_youtube.get_channels_info_batch.return_value = {
+        "UC_SYNC_META_1": {
+            "youtube_channel_id": "UC_SYNC_META_1",
+            "title": "新しい日本語タイトル",
+            "description": "最新の日本語概要欄です。勉強用BGMをお届けします。",
+            "custom_url": "@newsync1",
+            "thumbnail_url": "http://example.com/new_thumb.jpg",
+            "country": "JP",
+            "subscriber_count": 120,
+            "view_count": 6000,
+            "video_count": 12
+        },
+        "UC_SYNC_META_2": {
+            "youtube_channel_id": "UC_SYNC_META_2",
+            "title": "Channel 2 Updated",
+            "description": "最新の概要欄2",
+            "custom_url": "@c2_handle",
+            "thumbnail_url": "http://example.com/c2_thumb.jpg",
+            "country": "JP",
+            "subscriber_count": 210,
+            "view_count": 12000,
+            "video_count": 21
+        }
+    }
+
+    # 3. エンドポイントの実行
+    response = client.post("/api/channels/sync-all-metadata")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["synced_count"] == 2
+
+    # 4. DB内の値の検証
+    db.refresh(c1)
+    db.refresh(c2)
+
+    # c1 のメタデータが正しく最新化されていること
+    assert c1.title == "新しい日本語タイトル"
+    assert c1.description == "最新の日本語概要欄です。勉強用BGMをお届けします。"
+    assert c1.custom_url == "@newsync1"
+    assert c1.thumbnail_url == "http://example.com/new_thumb.jpg"
+    assert c1.subscriber_count == 120
+    assert c1.view_count == 6000
+
+    # ユーザー設定が 100% 維持されていること
+    assert c1.is_pinned is True
+    assert c1.is_own_channel is True
+    assert c1.sort_order == 5
+
+    # c2 の AI 分析キャッシュが保持されていること
+    assert c2.ai_analysis is not None
+    assert c2.ai_analysis_generated_at == gen_time
+    assert c2.description == "最新の概要欄2"

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import styles from './MilestoneModal.module.css';
 import { ChannelMilestoneItem, fetchChannelMilestones } from '../utils/api';
 import { Search, X, ArrowUpDown } from 'lucide-react';
+import ChannelAvatar from './ChannelAvatar';
 
 interface MilestoneModalProps {
   isOpen: boolean;
@@ -164,25 +165,12 @@ export const MilestoneModal: React.FC<MilestoneModalProps> = ({ isOpen, onClose 
                     <tr key={item.channel_id}>
                       <td>
                         <div className={styles.channelCell}>
-                          {item.thumbnail_url ? (
-                            <img
-                              src={item.thumbnail_url}
-                              alt={item.title}
-                              className={styles.avatar}
-                            />
-                          ) : (
-                            <div
-                              className={styles.avatar}
-                              style={{
-                                background: '#374151',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              📺
-                            </div>
-                          )}
+                          <ChannelAvatar
+                            src={item.thumbnail_url}
+                            title={item.title}
+                            size={36}
+                            className={styles.avatar}
+                          />
                           <div className={styles.channelNameGroup}>
                             <span className={styles.channelTitle}>{item.title}</span>
                             {item.custom_url && (

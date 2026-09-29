@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
+import ChannelAvatar from './ChannelAvatar';
 import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost } from 'lucide-react';
 
 interface ChannelCardProps {
@@ -260,14 +261,13 @@ export default function ChannelCard({
           <GripVertical size={18} />
         </div>
 
-        {channel.thumbnail_url && (
-          <img
-            src={channel.thumbnail_url}
-            alt={channel.title}
-            className={styles.thumbnail}
-            draggable="false"
-          />
-        )}
+        <ChannelAvatar
+          src={channel.thumbnail_url}
+          title={channel.title}
+          size={44}
+          className={styles.thumbnail}
+          draggable={false}
+        />
         <div className={styles.titles}>
           <div className={styles.titleRow}>
             <h3 className={styles.title} title={channel.title}>

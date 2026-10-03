@@ -6,6 +6,20 @@ class ChannelCreateRequest(BaseModel):
     identifier: str  # チャンネルID (UC...) またはハンドル (@...)
     import_limit: int = 50  # 同期する動画の件数
 
+class TopVideoResponse(BaseModel):
+    id: int
+    youtube_video_id: str
+    title: str
+    view_count: int
+    like_count: Optional[int] = None
+    comment_count: Optional[int] = None
+    published_at: datetime
+    is_short: bool = False
+    duration: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    multiplier_vs_avg: Optional[float] = None
+    daily_view_growth: int = 0
+
 class ChannelResponse(BaseModel):
     id: int
     youtube_channel_id: str
@@ -36,6 +50,7 @@ class ChannelResponse(BaseModel):
     anomaly_type: Optional[str] = None
     anomaly_score: Optional[float] = None
     anomaly_reason: Optional[str] = None
+    top_videos: List[TopVideoResponse] = []
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

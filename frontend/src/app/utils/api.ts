@@ -30,7 +30,23 @@ export interface Channel {
   anomaly_type?: string | null; // 異常検知タイプ ("ad_suspected" | "artificial_sub_growth" | "ghost_views" | null)
   anomaly_score?: number | null; // 疑わしさスコア (0.0 ~ 1.0)
   anomaly_reason?: string | null; // 検知理由
+  top_videos?: TopVideo[]; // 再生数TOP3動画
   updated_at: string;
+}
+
+export interface TopVideo {
+  id: number;
+  youtube_video_id: string;
+  title: string;
+  view_count: number;
+  like_count?: number | null;
+  comment_count?: number | null;
+  published_at: string;
+  is_short: boolean;
+  duration?: string | null;
+  thumbnail_url?: string | null;
+  multiplier_vs_avg?: number | null;
+  daily_view_growth?: number;
 }
 
 export interface RegisterResponse {

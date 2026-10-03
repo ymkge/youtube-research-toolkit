@@ -551,6 +551,7 @@ export default function Home() {
                       onShowAIAnalysis={handleShowAIAnalysis}
                       isAllTrendExpanded={isAllTrendExpanded}
                       allTrendMetric={trendMetric}
+                      isHotFilterActive={signalFilter === 'HOT'}
                     />
                   ))}
                 </div>

@@ -432,3 +432,78 @@ def test_sync_all_channel_metadata(mock_youtube, client, db):
     assert c2.ai_analysis is not None
     assert c2.ai_analysis_generated_at == gen_time
     assert c2.description == "最新の概要欄2"
+
+
+def test_get_channels_includes_top_videos(client, db):
+    """
+    GET /api/channels/ が各チャンネルの成長牽引動画 TOP3 (再生数順、平均比付き) を
+    正しく抽出して返却することを検証します。
+    """
+    # チャンネル作成
+    c = Channel(
+        youtube_channel_id="UC_TOP_VIDS_TEST",
+        title="Top Videos Channel",
+        subscriber_count=1000,
+        view_count=17500,
+        video_count=4
+    )
+    db.add(c)
+    db.flush()
+
+    # 動画4本作成 (再生数: 10,000, 5,000, 2,000, 500) 平均 = 4375
+    now = datetime.utcnow()
+    v1 = Video(channel_id=c.id, youtube_video_id="v_top_1", title="Hit Video 1", view_count=10000, published_at=now - timedelta(days=5), is_short=False)
+    v2 = Video(channel_id=c.id, youtube_video_id="v_top_2", title="Hit Video 2", view_count=5000, published_at=now - timedelta(days=10), is_short=True)
+    v3 = Video(channel_id=c.id, youtube_video_id="v_top_3", title="Hit Video 3", view_count=2000, published_at=now - timedelta(days=20), is_short=False)
+    v4 = Video(channel_id=c.id, youtube_video_id="v_top_4", title="Normal Video", view_count=500, published_at=now - timedelta(days=30), is_short=False)
+
+    db.add_all([v1, v2, v3, v4])
+    db.commit()
+
+    response = client.get("/api/channels/")
+    assert response.status_code == 200
+    channels = response.json()
+
+    target = next((ch for ch in channels if ch["id"] == c.id), None)
+    assert target is not None
+
+    top_vids = target["top_videos"]
+    # 4本中 上位3本のみ取得されていること
+    assert len(top_vids) == 3
+
+    # daily_view_growth が未設定の場合は累計再生数降順
+    assert top_vids[0]["youtube_video_id"] == "v_top_1"
+    assert top_vids[0]["view_count"] == 10000
+    assert top_vids[0]["multiplier_vs_avg"] is not None
+    assert top_vids[0]["multiplier_vs_avg"] > 1.0  # 平均4375に対して約2.3倍
+    assert "https://i.ytimg.com/vi/v_top_1" in top_vids[0]["thumbnail_url"]
+
+    assert top_vids[1]["youtube_video_id"] == "v_top_2"
+    assert top_vids[1]["view_count"] == 5000
+    assert top_vids[1]["is_short"] is True
+
+    assert top_vids[2]["youtube_video_id"] == "v_top_3"
+    assert top_vids[2]["view_count"] == 2000
+
+    # 前日急増 (daily_view_growth) が発生した場合の検証:
+    # 累計が低い v3 (2000 views) が前日 +1500回急増し、v1 (10000 views) が +100回の場合
+    v3.daily_view_growth = 1500
+    v1.daily_view_growth = 100
+    v2.daily_view_growth = 500
+    v4.daily_view_growth = 0
+    db.commit()
+
+    response2 = client.get("/api/channels/")
+    assert response2.status_code == 200
+    channels2 = response2.json()
+    target2 = next((ch for ch in channels2 if ch["id"] == c.id), None)
+    top_vids2 = target2["top_videos"]
+
+    # 前日増加数 (daily_view_growth) 降順で抽出されていること: 1位: v3 (+1500), 2位: v2 (+500), 3位: v1 (+100)
+    assert top_vids2[0]["youtube_video_id"] == "v_top_3"
+    assert top_vids2[0]["daily_view_growth"] == 1500
+    assert top_vids2[1]["youtube_video_id"] == "v_top_2"
+    assert top_vids2[1]["daily_view_growth"] == 500
+    assert top_vids2[2]["youtube_video_id"] == "v_top_1"
+    assert top_vids2[2]["daily_view_growth"] == 100
+

@@ -146,6 +146,31 @@
   transform: scale(1.05);
 }
 
+/* 牽引動画TOP3トグルボタン */
+.topVideosButton {
+  background: transparent;
+  border: none;
+  color: #555555;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: color 0.2s, background-color 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topVideosButton:hover {
+  color: #ff6b00;
+  background-color: rgba(255, 107, 0, 0.12);
+}
+
+.topVideosActive {
+  color: #ff6b00;
+  background-color: rgba(255, 107, 0, 0.18);
+  transform: scale(1.05);
+}
+
 .pinButton {
   background: transparent;
   border: none;
@@ -749,4 +774,226 @@
   background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
   height: 100%;
   transition: width 0.3s ease;
+}
+
+/* 🚀 成長牽引動画 TOP3 エリア */
+.topVideosSection {
+  margin-top: 0.85rem;
+  padding: 0.85rem;
+  background: #141417;
+  border: 1px solid rgba(255, 107, 0, 0.25);
+  border-radius: 8px;
+  animation: fadeIn 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.topVideosHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.4rem;
+}
+
+.topVideosTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ff8c38;
+}
+
+.topVideosHeaderIcon {
+  color: #ff6b00;
+}
+
+.topVideosSub {
+  font-size: 0.68rem;
+  color: #888888;
+}
+
+.topVideosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.topVideoItem {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.topVideoItem:hover {
+  background: rgba(255, 107, 0, 0.08);
+  border-color: rgba(255, 107, 0, 0.4);
+  transform: translateX(2px);
+}
+
+.topVideoRankBadge {
+  font-size: 1.15rem;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.topVideoThumbnailWrapper {
+  position: relative;
+  width: 60px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #000;
+}
+
+.topVideoThumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.topVideoThumbnailPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  background-color: #1e1e1e;
+}
+
+.topVideoShortTag {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(236, 72, 153, 0.85);
+  color: #ffffff;
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 0px 3px;
+  border-radius: 2px;
+  line-height: 1.2;
+}
+
+.topVideoContent {
+  flex: 1;
+  min-width: 0; /* truncate text safely */
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.topVideoItemTitle {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+
+.topVideoItem:hover .topVideoItemTitle {
+  color: #ff9d42;
+}
+
+.topVideoStatsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  color: #999999;
+}
+
+.topVideoViewCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-weight: 600;
+  color: #cccccc;
+}
+
+.statMiniIcon {
+  color: #888;
+}
+
+.growthHitBadge {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.25) 0%, rgba(255, 61, 0, 0.35) 100%);
+  border: 1px solid rgba(255, 107, 0, 0.6);
+  color: #ff9d42;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(255, 107, 0, 0.2);
+  white-space: nowrap;
+}
+
+.multiplierChip {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #dddddd;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.multiplierHotChip {
+  background: rgba(255, 87, 34, 0.2);
+  border-color: rgba(255, 87, 34, 0.5);
+  color: #ff7043;
+  font-weight: 700;
+}
+
+.topVideoPublishDate {
+  font-size: 0.65rem;
+  color: #777777;
+  margin-left: auto;
+}
+
+.topVideoLinkIcon {
+  color: #666666;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.topVideoItem:hover .topVideoLinkIcon {
+  color: #ff8c38;
+  transform: translate(1px, -1px);
+}
+
+.topVideosEmpty {
+  font-size: 0.75rem;
+  color: #777;
+  padding: 0.5rem;
+  text-align: center;
 }

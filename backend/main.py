@@ -72,6 +72,26 @@ def run_migrations():
             db.execute(text("ALTER TABLE channels ADD COLUMN videos_synced_at DATETIME"))
             db.commit()
             print("Migration: 'videos_synced_at' column added successfully.")
+
+        # videos テーブルのカラムマイグレーション
+        video_columns = [col['name'] for col in inspector.get_columns('videos')]
+        if 'previous_view_count' not in video_columns:
+            print("Migration: Adding 'previous_view_count' column to 'videos' table...")
+            db.execute(text("ALTER TABLE videos ADD COLUMN previous_view_count INTEGER DEFAULT 0"))
+            db.commit()
+            print("Migration: 'previous_view_count' column added successfully.")
+
+        if 'daily_view_growth' not in video_columns:
+            print("Migration: Adding 'daily_view_growth' column to 'videos' table...")
+            db.execute(text("ALTER TABLE videos ADD COLUMN daily_view_growth INTEGER DEFAULT 0"))
+            db.commit()
+            print("Migration: 'daily_view_growth' column added successfully.")
+
+        if 'last_growth_updated_at' not in video_columns:
+            print("Migration: Adding 'last_growth_updated_at' column to 'videos' table...")
+            db.execute(text("ALTER TABLE videos ADD COLUMN last_growth_updated_at DATETIME"))
+            db.commit()
+            print("Migration: 'last_growth_updated_at' column added successfully.")
             
     except Exception as e:
         print(f"Migration warning: {e}")

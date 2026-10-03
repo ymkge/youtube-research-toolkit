@@ -3,7 +3,7 @@ import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, de
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
 import ChannelAvatar from './ChannelAvatar';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost, ExternalLink } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -18,6 +18,7 @@ interface ChannelCardProps {
   onToggleOwnChannel?: (channelId: number) => void;
   isAllTrendExpanded?: boolean;
   allTrendMetric?: 'subscribers' | 'views' | 'videos';
+  isHotFilterActive?: boolean;
 }
 
 // 数値を読みやすい単位（万、億）にフォーマットする関数
@@ -77,7 +78,8 @@ export default function ChannelCard({
   onShowAIAnalysis,
   onToggleOwnChannel,
   isAllTrendExpanded,
-  allTrendMetric
+  allTrendMetric,
+  isHotFilterActive = false
 }: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
@@ -88,6 +90,19 @@ export default function ChannelCard({
   const [history, setHistory] = useState<ChannelStatsHistory[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+
+  // 成長牽引動画 TOP3 表示用ステート
+  const [showTopVideos, setShowTopVideos] = useState(false);
+
+  const isHot = (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0) ||
+                (channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100);
+
+  // 急成長フィルターがアクティブになった時、急成長チャンネルのTOP3を自動展開
+  useEffect(() => {
+    if (isHotFilterActive && isHot) {
+      setShowTopVideos(true);
+    }
+  }, [isHotFilterActive, isHot]);
 
   // channel.id が変わった場合は履歴ステートをリセット
   useEffect(() => {
@@ -167,10 +182,23 @@ export default function ChannelCard({
 
   return (
     <div 
-      className={`${styles.card} ${rankClass} ${channel.is_pinned ? styles.pinnedCard : ''} ${channel.is_own_channel ? styles.ownChannelCard : ''} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${showChart ? styles.expanded : ''}`}
+      className={`${styles.card} ${rankClass} ${channel.is_pinned ? styles.pinnedCard : ''} ${channel.is_own_channel ? styles.ownChannelCard : ''} ${isDeleting ? styles.deleting : ''} ${isDraggingNow ? styles.dragging : ''} ${(showChart || showTopVideos) ? styles.expanded : ''}`}
       onMouseLeave={() => setIsMenuOpen(false)}
     >
       <div className={styles.actionButtons}>
+        {/* 成長牽引動画 TOP3 ボタン */}
+        <button 
+          className={`${styles.topVideosButton} ${showTopVideos ? styles.topVideosActive : ''}`} 
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowTopVideos(!showTopVideos);
+          }} 
+          title={showTopVideos ? "牽引動画 TOP3 を閉じる" : "成長牽引動画 TOP3 を表示"}
+          disabled={isDeleting}
+        >
+          <Flame size={14} />
+        </button>
+
         {/* トレンド表示（グラフ）ボタン */}
         <button 
           className={`${styles.trendButton} ${showChart ? styles.trendActive : ''}`} 
@@ -325,13 +353,29 @@ export default function ChannelCard({
                 </div>
               )}
               {channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100 && (
-                <div className={styles.hotBadge} title="前日比で登録者数が100名以上急増中！">
+                <div 
+                  className={styles.hotBadge} 
+                  title="前日比で登録者数が100名以上急増中！クリックで成長牽引動画TOP3を表示/非表示"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTopVideos(prev => !prev);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   <Flame size={12} className={styles.hotIcon} />
                   <span>登録者 +{channel.daily_sub_growth.toLocaleString()}名</span>
                 </div>
               )}
               {channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0 && (
-                <div className={`${styles.hotBadge} ${styles.viewHotBadge}`} title="前日比で総再生数が2.0%以上急増中！">
+                <div 
+                  className={`${styles.hotBadge} ${styles.viewHotBadge}`} 
+                  title="前日比で総再生数が2.0%以上急増中！クリックで成長牽引動画TOP3を表示/非表示"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTopVideos(prev => !prev);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   <Flame size={12} className={styles.viewHotIcon} />
                   <span>再生数 +{channel.daily_view_growth_rate.toFixed(1)}%</span>
                 </div>
@@ -463,6 +507,92 @@ export default function ChannelCard({
           <span className={styles.statLabel}>総再生数</span>
         </div>
       </div>
+
+      {/* 🚀 前日再生数急増動画 TOP3 アコーディオン展開エリア */}
+      {showTopVideos && (
+        <div className={styles.topVideosSection}>
+          <div className={styles.topVideosHeader}>
+            <div className={styles.topVideosTitle}>
+              <Flame size={14} className={styles.topVideosHeaderIcon} />
+              <span>前日急増動画 TOP3（急成長要因）</span>
+            </div>
+            <span className={styles.topVideosSub}>前日再生数増分 / 累計</span>
+          </div>
+
+          {channel.top_videos && channel.top_videos.length > 0 ? (
+            <div className={styles.topVideosList}>
+              {channel.top_videos.map((vid, idx) => (
+                <a
+                  key={vid.youtube_video_id || vid.id}
+                  href={`https://www.youtube.com/watch?v=${vid.youtube_video_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.topVideoItem}
+                  title={`${vid.title} (前日増加: +${(vid.daily_view_growth || 0).toLocaleString()}回 / 累計: ${vid.view_count.toLocaleString()}回)`}
+                >
+                  <div className={styles.topVideoRankBadge}>
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                  </div>
+                  <div className={styles.topVideoThumbnailWrapper}>
+                    {vid.thumbnail_url ? (
+                      <img
+                        src={vid.thumbnail_url}
+                        alt={vid.title}
+                        className={styles.topVideoThumbnail}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className={styles.topVideoThumbnailPlaceholder}>
+                        <Play size={14} />
+                      </div>
+                    )}
+                    {vid.is_short && (
+                      <span className={styles.topVideoShortTag}>Shorts</span>
+                    )}
+                  </div>
+                  <div className={styles.topVideoContent}>
+                    <div className={styles.topVideoItemTitle}>
+                      {vid.title}
+                    </div>
+                    <div className={styles.topVideoStatsRow}>
+                      {/* 前日増加量バッジ */}
+                      {vid.daily_view_growth !== undefined && vid.daily_view_growth > 0 ? (
+                        <span 
+                          className={styles.growthHitBadge}
+                          title={`前日からの再生数増加: +${vid.daily_view_growth.toLocaleString()}回`}
+                        >
+                          🔥 前日 +{vid.daily_view_growth.toLocaleString()}回
+                        </span>
+                      ) : null}
+
+                      <span className={styles.topVideoViewCount} title="累計再生数">
+                        <Play size={10} className={styles.statMiniIcon} />
+                        {vid.view_count.toLocaleString()}回
+                      </span>
+                      {vid.multiplier_vs_avg !== null && vid.multiplier_vs_avg !== undefined && vid.multiplier_vs_avg > 0 && (
+                        <span 
+                          className={`${styles.multiplierChip} ${vid.multiplier_vs_avg >= 2.0 ? styles.multiplierHotChip : ''}`}
+                          title={`チャンネル平均再生数 (${formatNumber(channel.average_views_per_video || 0)}) の ${vid.multiplier_vs_avg.toFixed(1)}倍`}
+                        >
+                          平均比 {vid.multiplier_vs_avg.toFixed(1)}倍
+                        </span>
+                      )}
+                      <span className={styles.topVideoPublishDate}>
+                        {formatDate(vid.published_at)}
+                      </span>
+                    </div>
+                  </div>
+                  <ExternalLink size={12} className={styles.topVideoLinkIcon} />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.topVideosEmpty}>
+              動画データが同期されていないか、動画が存在しません。
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ★ トレンド折れ線グラフコンポーネント (アコーディオン展開されるエリア) */}
       {showChart && (

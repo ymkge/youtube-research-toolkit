@@ -20,6 +20,9 @@ class Video(Base):
     category_id = Column(String, nullable=True)
     is_short = Column(Boolean, default=False)
     is_live = Column(Boolean, default=False)
+    previous_view_count = Column(Integer, default=0)
+    daily_view_growth = Column(Integer, default=0)
+    last_growth_updated_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     # チャンネルとの多対1リレーションシップ

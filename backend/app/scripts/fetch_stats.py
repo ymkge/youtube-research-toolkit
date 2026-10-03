@@ -63,6 +63,41 @@ def fetch_channel_api_stats(youtube_channel_id: str):
         "title": info["title"]
     }
 
+def sync_channel_videos_growth(db: Session, channel: Channel):
+    """
+    チャンネル内の動画の最新再生数を YouTube videos.list で一括取得し、
+    前日（前回値）からの増加量 (daily_view_growth) を更新します。
+    """
+    from app.models.video import Video
+    vids = db.query(Video).filter(Video.channel_id == channel.id).all()
+    if not vids or not youtube_service.is_configured() or not getattr(youtube_service, "youtube", None):
+        return
+
+    video_ids = [v.youtube_video_id for v in vids if v.youtube_video_id]
+    chunk_size = 50
+    for i in range(0, len(video_ids), chunk_size):
+        chunk = video_ids[i:i + chunk_size]
+        try:
+            req = youtube_service.youtube.videos().list(
+                part="statistics",
+                id=",".join(chunk)
+            )
+            res = req.execute()
+            stats_map = {item["id"]: int(item["statistics"].get("viewCount", 0)) for item in res.get("items", [])}
+            
+            for v in vids:
+                if v.youtube_video_id in stats_map:
+                    new_views = stats_map[v.youtube_video_id]
+                    old_views = v.view_count or 0
+                    if new_views >= old_views:
+                        v.daily_view_growth = new_views - old_views
+                        v.previous_view_count = old_views
+                    v.view_count = new_views
+                    v.last_growth_updated_at = datetime.datetime.utcnow()
+                    v.updated_at = datetime.datetime.utcnow()
+        except Exception as ex:
+            print(f"Error updating video growth stats for chunk in {channel.title}: {ex}")
+
 def run_db_mode():
     """
     --db オプション: SQLite DBへ直接統計を記録（ローカルPCでのバッチ手動実行用）
@@ -112,6 +147,16 @@ def run_db_mode():
 
         db.commit()
         print("Database update completed successfully.")
+
+        # 動画ごとの日次増分 (daily_view_growth) を一括更新
+        print("Updating video daily growth stats for all channels...")
+        for channel in channels:
+            try:
+                sync_channel_videos_growth(db, channel)
+            except Exception as e:
+                print(f"Error syncing video growth for {channel.title}: {e}")
+        db.commit()
+        print("Video daily growth update completed.")
     finally:
         db.close()
 

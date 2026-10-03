@@ -5,7 +5,7 @@ from app.db.session import get_db
 from app.models.channel import Channel
 from app.models.video import Video
 from app.models.channel_stats_history import ChannelStatsHistory
-from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest
+from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest, TopVideoResponse
 from app.schemas.channel_stats_history import ChannelStatsHistoryResponse
 from app.schemas.sync_status import SyncStatusResponse, FetchMissingResponse, MissingChannelItem
 from app.schemas.milestones import ChannelMilestonesResponse, ChannelMilestoneItem
@@ -126,14 +126,29 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
             ).first()
 
             if db_video:
+                # 既存動画の再生数増加量を計算
+                new_views = video_data.get("view_count", 0)
+                old_views = db_video.view_count or 0
+                if new_views >= old_views:
+                    db_video.daily_view_growth = new_views - old_views
+                    db_video.previous_view_count = old_views
+                    db_video.last_growth_updated_at = datetime.datetime.utcnow()
+
                 # 既存動画の統計データを非破壊型 Upsert で安全更新
                 for key, value in video_data.items():
                     if value is not None or getattr(db_video, key, None) is None:
                         setattr(db_video, key, value)
                 db_video.updated_at = datetime.datetime.utcnow()
             else:
-                # 新規動画の追加
-                new_video = Video(channel_id=channel.id, **video_data)
+                # 新規動画の追加 (初速として view_count を daily_view_growth にセット)
+                new_views = video_data.get("view_count", 0)
+                new_video = Video(
+                    channel_id=channel.id,
+                    previous_view_count=0,
+                    daily_view_growth=new_views,
+                    last_growth_updated_at=datetime.datetime.utcnow(),
+                    **video_data
+                )
                 db.add(new_video)
         db.flush()
 
@@ -374,6 +389,35 @@ def get_channels(db: Session = Depends(get_db)):
         # 広告出稿・外部業者ブースト等の異常検知を実行 (インメモリ高速判定)
         anomaly = detect_channel_anomalies(c, ch_videos, ch_histories)
 
+        # 前日再生数急増動画 TOP3 の抽出 (インメモリ高速処理)
+        top_videos_list = []
+        if ch_videos:
+            # daily_view_growth > 0 の動画がある場合は増加量降順でソート、なければ累計再生数順にフォールバック
+            has_growth = any((v.daily_view_growth or 0) > 0 for v in ch_videos)
+            if has_growth:
+                sorted_vids = sorted(ch_videos, key=lambda v: (v.daily_view_growth or 0), reverse=True)
+            else:
+                sorted_vids = sorted(ch_videos, key=lambda v: (v.view_count or 0), reverse=True)
+
+            for tv in sorted_vids[:3]:
+                v_count = tv.view_count or 0
+                mult = round(v_count / avg_v, 1) if avg_v and avg_v > 0 else 1.0
+                thumb_url = getattr(tv, 'thumbnail_url', None) or f"https://i.ytimg.com/vi/{tv.youtube_video_id}/mqdefault.jpg"
+                top_videos_list.append(TopVideoResponse(
+                    id=tv.id,
+                    youtube_video_id=tv.youtube_video_id,
+                    title=tv.title,
+                    view_count=v_count,
+                    like_count=tv.like_count,
+                    comment_count=tv.comment_count,
+                    published_at=tv.published_at,
+                    is_short=bool(tv.is_short),
+                    duration=tv.duration,
+                    thumbnail_url=thumb_url,
+                    multiplier_vs_avg=mult,
+                    daily_view_growth=tv.daily_view_growth or 0
+                ))
+
         item_res = ChannelResponse.model_validate(c)
         item_res.daily_sub_growth = sub_growth
         item_res.daily_view_growth_rate = view_growth_rate
@@ -386,6 +430,7 @@ def get_channels(db: Session = Depends(get_db)):
         item_res.anomaly_type = anomaly.anomaly_type
         item_res.anomaly_score = anomaly.anomaly_score
         item_res.anomaly_reason = anomaly.anomaly_reason
+        item_res.top_videos = top_videos_list
         res_list.append(item_res)
 
     return res_list

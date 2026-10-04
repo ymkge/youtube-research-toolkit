@@ -224,17 +224,16 @@
   border: 1px solid #333333;
   border-radius: 8px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  padding: 0.25rem;
+  padding: 0.35rem;
   display: flex;
   flex-direction: column;
-  min-width: 140px;
+  min-width: 175px;
   z-index: 100;
 }
 
-.dropdownItemDelete {
+.dropdownItem {
   background: transparent;
   border: none;
-  color: #ff4d4d;
   cursor: pointer;
   padding: 8px 12px;
   border-radius: 6px;
@@ -246,11 +245,45 @@
   gap: 0.5rem;
   width: 100%;
   text-align: left;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.dropdownItemOwn {
+  color: #cccccc;
+}
+
+.dropdownItemOwn:hover {
+  background-color: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+
+.dropdownItemOwnActive {
+  color: #38bdf8;
+}
+
+.menuOwnIcon {
+  color: #888888;
+  transition: color 0.2s;
+}
+
+.dropdownItemOwn:hover .menuOwnIcon {
+  color: #38bdf8;
+}
+
+.dropdownDivider {
+  height: 1px;
+  background-color: #333333;
+  margin: 0.25rem 0;
+}
+
+.dropdownItemDelete {
+  color: #ff4d4d;
 }
 
 .dropdownItemDelete:hover {
   background-color: rgba(255, 77, 77, 0.15);
+  color: #ff6666;
 }
 
 .menuDeleteIcon {
@@ -313,7 +346,7 @@
   gap: 0.5rem;
   align-items: center;
   margin-bottom: 0.5rem;
-  padding-right: 9.5rem; /* 右上アクションボタン5個分の十分な右余白を確保 */
+  padding-right: 7.8rem; /* 右上アクションボタン5個分の十分な右余白を確保 */
 }
 
 .dragHandle {

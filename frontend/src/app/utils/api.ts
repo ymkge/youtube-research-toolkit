@@ -388,6 +388,13 @@ export async function syncAllChannelMetadata(): Promise<{
   return res.json();
 }
 
-
-
-
+export async function syncSingleChannelVideos(channelId: number): Promise<Channel> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/sync-videos`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || '動画の同期に失敗しました。');
+  }
+  return res.json();
+}

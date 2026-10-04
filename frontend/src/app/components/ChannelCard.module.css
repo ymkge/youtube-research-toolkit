@@ -821,9 +821,47 @@
   color: #ff6b00;
 }
 
+.topVideosHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .topVideosSub {
   font-size: 0.68rem;
   color: #888888;
+}
+
+.syncVideosBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #999999;
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.syncVideosBtn:hover {
+  color: #ff8c38;
+  border-color: rgba(255, 140, 56, 0.5);
+  background: rgba(255, 140, 56, 0.1);
+}
+
+.syncSpinning {
+  animation: spin 1s linear infinite;
+  pointer-events: none;
+  color: #ff8c38;
+  border-color: rgba(255, 140, 56, 0.5);
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .topVideosList {
@@ -927,6 +965,7 @@
   gap: 0.45rem;
   font-size: 0.68rem;
   color: #999999;
+  flex-wrap: wrap;
 }
 
 .topVideoViewCount {
@@ -935,6 +974,8 @@
   gap: 0.2rem;
   font-weight: 600;
   color: #cccccc;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .statMiniIcon {
@@ -947,37 +988,21 @@
   background: linear-gradient(135deg, rgba(255, 107, 0, 0.25) 0%, rgba(255, 61, 0, 0.35) 100%);
   border: 1px solid rgba(255, 107, 0, 0.6);
   color: #ff9d42;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: 4px;
   box-shadow: 0 0 8px rgba(255, 107, 0, 0.2);
   white-space: nowrap;
-}
-
-.multiplierChip {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #dddddd;
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-
-.multiplierHotChip {
-  background: rgba(255, 87, 34, 0.2);
-  border-color: rgba(255, 87, 34, 0.5);
-  color: #ff7043;
-  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .topVideoPublishDate {
-  font-size: 0.65rem;
+  font-size: 0.64rem;
   color: #777777;
   margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .topVideoLinkIcon {

@@ -237,30 +237,6 @@ export default function ChannelCard({
           <Brain size={14} />
         </button>
 
-        {/* 自チャンネル切り替えボタン */}
-        <button 
-          className={`${styles.ownButton} ${channel.is_own_channel ? styles.ownActive : ''}`} 
-          onClick={async (e) => {
-            e.stopPropagation();
-            if (isDeleting) return;
-            try {
-              const updated = await toggleOwnChannel(channel.id);
-              if (onUpdateChannel) {
-                onUpdateChannel(updated);
-              } else if (onToggleOwnChannel) {
-                onToggleOwnChannel(channel.id);
-              }
-            } catch (err) {
-              console.error("自チャンネル切り替えエラー:", err);
-              alert("自チャンネル設定の更新に失敗しました。");
-            }
-          }} 
-          title={channel.is_own_channel ? "自チャンネル設定を解除" : "このチャンネルを自分のチャンネルに設定"}
-          disabled={isDeleting}
-        >
-          <Home size={14} className={channel.is_own_channel ? styles.ownIconActive : ''} />
-        </button>
-
         {/* ピン留めボタン */}
         <button 
           className={`${styles.pinButton} ${channel.is_pinned ? styles.pinned : ''}`} 
@@ -283,8 +259,37 @@ export default function ChannelCard({
 
         {isMenuOpen && (
           <div className={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
+            {/* 自チャンネル設定 / 解除 */}
             <button 
-              className={styles.dropdownItemDelete}
+              className={`${styles.dropdownItem} ${styles.dropdownItemOwn} ${channel.is_own_channel ? styles.dropdownItemOwnActive : ''}`}
+              onClick={async (e) => {
+                e.stopPropagation();
+                setIsMenuOpen(false);
+                if (isDeleting) return;
+                try {
+                  const updated = await toggleOwnChannel(channel.id);
+                  if (onUpdateChannel) {
+                    onUpdateChannel(updated);
+                  } else if (onToggleOwnChannel) {
+                    onToggleOwnChannel(channel.id);
+                  }
+                } catch (err) {
+                  console.error("自チャンネル切り替えエラー:", err);
+                  alert("自チャンネル設定の更新に失敗しました。");
+                }
+              }}
+              title={channel.is_own_channel ? "自チャンネル設定を解除" : "このチャンネルを自分のチャンネルに設定"}
+              disabled={isDeleting}
+            >
+              <Home size={14} className={channel.is_own_channel ? styles.ownIconActive : styles.menuOwnIcon} />
+              <span>{channel.is_own_channel ? "自チャンネル設定を解除" : "自チャンネルに設定"}</span>
+            </button>
+
+            <div className={styles.dropdownDivider} />
+
+            {/* 追跡解除（削除） */}
+            <button 
+              className={`${styles.dropdownItem} ${styles.dropdownItemDelete}`}
               onClick={(e) => { setIsMenuOpen(false); handleDeleteClick(e); }}
             >
               <Trash2 size={14} className={styles.menuDeleteIcon} />

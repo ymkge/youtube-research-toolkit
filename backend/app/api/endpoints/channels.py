@@ -126,13 +126,23 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
             ).first()
 
             if db_video:
-                # 既存動画の再生数増加量を計算
+                # 既存動画の再生数増加量を計算 (同日内再同期ガード付き)
                 new_views = video_data.get("view_count", 0)
                 old_views = db_video.view_count or 0
-                if new_views >= old_views:
-                    db_video.daily_view_growth = new_views - old_views
-                    db_video.previous_view_count = old_views
-                    db_video.last_growth_updated_at = datetime.datetime.utcnow()
+                now_utc = datetime.datetime.utcnow()
+                today_utc = now_utc.date()
+
+                last_sync_date = db_video.last_growth_updated_at.date() if db_video.last_growth_updated_at else None
+                if last_sync_date == today_utc and db_video.previous_view_count is not None and db_video.previous_view_count > 0:
+                    # 同日内の再同期: 前日基準値 (previous_view_count) を固定し、当日差分を保護
+                    if new_views >= db_video.previous_view_count:
+                        db_video.daily_view_growth = new_views - db_video.previous_view_count
+                else:
+                    # 新しい日付での初回同期: 直前再生数を previous_view_count に保存
+                    if new_views >= old_views:
+                        db_video.daily_view_growth = new_views - old_views
+                        db_video.previous_view_count = old_views
+                db_video.last_growth_updated_at = now_utc
 
                 # 既存動画の統計データを非破壊型 Upsert で安全更新
                 for key, value in video_data.items():
@@ -860,6 +870,44 @@ def sync_all_channel_videos(import_limit: int = Query(100, ge=1, le=100), db: Se
         "synced_count": len(synced_titles),
         "synced_channels": synced_titles
     }
+
+
+@router.post("/{channel_id}/sync-videos", response_model=ChannelResponse)
+def sync_single_channel_videos(channel_id: int, db: Session = Depends(get_db)):
+    """
+    指定された単一チャンネルの最新動画リストおよび前日比増分 (daily_view_growth) を即時同期します。
+    """
+    if not youtube_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="YouTube API Key が設定されていません。"
+        )
+
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+
+    try:
+        info = youtube_service.get_channel_info(channel.youtube_channel_id)
+        uploads_id = info.get("uploads_playlist_id") if info else None
+        if uploads_id:
+            sync_channel_videos(db, channel, uploads_id, import_limit=100)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"動画の同期に失敗しました: {str(e)}"
+        )
+
+    # 同期後のチャンネル情報を返却
+    db.refresh(channel)
+    res_list = get_channels(db=db)
+    target = next((ch for ch in res_list if ch.id == channel.id), None)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="更新後データの取得に失敗しました。")
+    return target
 
 
 @router.post("/sync-all-metadata")

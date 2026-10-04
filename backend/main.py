@@ -183,8 +183,29 @@ async def auto_sync_videos_background():
         channels = db.query(Channel).all()
         now = datetime.datetime.utcnow()
         threshold = now - datetime.timedelta(hours=12)
+
+        # 急成長チャンネル (直近の daily_view_growth_rate >= 2.0 または daily_sub_growth >= 100) を最優先で先頭に配置
+        from app.models.channel_stats_history import ChannelStatsHistory
         
-        for channel in channels:
+        def is_channel_hot(ch: Channel) -> bool:
+            histories = db.query(ChannelStatsHistory).filter(
+                ChannelStatsHistory.channel_id == ch.id
+            ).order_by(ChannelStatsHistory.recorded_at.desc()).limit(2).all()
+            if len(histories) >= 2:
+                sub_diff = (histories[0].subscriber_count or 0) - (histories[1].subscriber_count or 0)
+                prev_v = histories[1].view_count or 0
+                view_rate = (((histories[0].view_count or 0) - prev_v) / prev_v * 100.0) if prev_v > 0 else 0.0
+                return sub_diff >= 100 or view_rate >= 2.0
+            return False
+
+        hot_channels = [c for c in channels if is_channel_hot(c)]
+        regular_channels = [c for c in channels if c not in hot_channels]
+        sorted_channels = hot_channels + regular_channels
+
+        if hot_channels:
+            print(f"Auto-Sync: Prioritizing {len(hot_channels)} hot channels for immediate video sync ({', '.join(c.title for c in hot_channels[:3])}...).")
+        
+        for channel in sorted_channels:
             # 動画専用の最終同期日時 (videos_synced_at) が 12時間以上古い場合のみ実行
             if not channel.videos_synced_at or channel.videos_synced_at < threshold:
                 print(f"Auto-Sync: Automatically synchronizing videos for channel '{channel.title}'...")

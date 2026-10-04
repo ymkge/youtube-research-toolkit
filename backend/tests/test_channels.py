@@ -507,3 +507,73 @@ def test_get_channels_includes_top_videos(client, db):
     assert top_vids2[2]["youtube_video_id"] == "v_top_1"
     assert top_vids2[2]["daily_view_growth"] == 100
 
+
+def test_sync_channel_videos_same_day_resync_guard(db):
+    """
+    同日(本日)に複数回同期が行われても、前日基準値 (previous_view_count) が固定され、
+    当日増分が直前差分で潰されないことを検証します。
+    """
+    from app.api.endpoints.channels import sync_channel_videos
+
+    c = Channel(
+        youtube_channel_id="UC_RESYNC_GUARD",
+        title="Resync Guard Channel",
+        subscriber_count=500,
+        view_count=1000,
+        video_count=1
+    )
+    db.add(c)
+    db.commit()
+
+    now_utc = datetime.utcnow()
+    # 前日時点: view_count = 1000, previous_view_count = 800, growth = 200 (昨日の同期)
+    v = Video(
+        channel_id=c.id,
+        youtube_video_id="v_resync_1",
+        title="Resync Video",
+        view_count=1000,
+        previous_view_count=800,
+        daily_view_growth=200,
+        last_growth_updated_at=now_utc - timedelta(days=1),
+        published_at=now_utc - timedelta(days=10)
+    )
+    db.add(v)
+    db.commit()
+
+    # 1. 本日初回同期: 1000 ➔ 1500 (前日比 +500)
+    with patch("app.services.youtube.youtube_service.get_recent_videos") as mock_get_vids:
+        mock_get_vids.return_value = [
+            {
+                "youtube_video_id": "v_resync_1",
+                "title": "Resync Video",
+                "view_count": 1500,
+                "published_at": now_utc - timedelta(days=10)
+            }
+        ]
+        sync_channel_videos(db, c, "uploads_guard_id")
+
+    db.refresh(v)
+    assert v.previous_view_count == 1000
+    assert v.daily_view_growth == 500
+    assert v.view_count == 1500
+
+    # 2. 本日2回目の再同期 (同日内): 1500 ➔ 1550 (+50追加伸長)
+    # 同日再同期ガードにより、previous_view_count (1000) が保持され、
+    # daily_view_growth は 1550 - 1000 = 550 になるべき（50で上書きされない）
+    with patch("app.services.youtube.youtube_service.get_recent_videos") as mock_get_vids:
+        mock_get_vids.return_value = [
+            {
+                "youtube_video_id": "v_resync_1",
+                "title": "Resync Video",
+                "view_count": 1550,
+                "published_at": now_utc - timedelta(days=10)
+            }
+        ]
+        sync_channel_videos(db, c, "uploads_guard_id")
+
+    db.refresh(v)
+    assert v.previous_view_count == 1000  # 前日基準値が保護されていること
+    assert v.daily_view_growth == 550      # 当日のトータル増分が保持されていること
+    assert v.view_count == 1550
+
+

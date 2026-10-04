@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel } from '../utils/api';
+import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel, syncSingleChannelVideos } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
 import ChannelAvatar from './ChannelAvatar';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost, ExternalLink } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost, ExternalLink, RotateCw } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -93,6 +93,24 @@ export default function ChannelCard({
 
   // 成長牽引動画 TOP3 表示用ステート
   const [showTopVideos, setShowTopVideos] = useState(false);
+  const [isSyncingVideos, setIsSyncingVideos] = useState(false);
+
+  const handleSyncVideos = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isSyncingVideos) return;
+    setIsSyncingVideos(true);
+    try {
+      const updated = await syncSingleChannelVideos(channel.id);
+      if (onUpdateChannel) {
+        onUpdateChannel(updated);
+      }
+    } catch (err: any) {
+      console.error("動画同期エラー:", err);
+      alert(err.message || "動画の同期に失敗しました。");
+    } finally {
+      setIsSyncingVideos(false);
+    }
+  };
 
   const isHot = (channel.daily_view_growth_rate !== undefined && channel.daily_view_growth_rate >= 2.0) ||
                 (channel.daily_sub_growth !== undefined && channel.daily_sub_growth >= 100);
@@ -516,7 +534,17 @@ export default function ChannelCard({
               <Flame size={14} className={styles.topVideosHeaderIcon} />
               <span>前日急増動画 TOP3（急成長要因）</span>
             </div>
-            <span className={styles.topVideosSub}>前日再生数増分 / 累計</span>
+            <div className={styles.topVideosHeaderRight}>
+              <span className={styles.topVideosSub}>前日再生数増分 / 累計</span>
+              <button
+                className={`${styles.syncVideosBtn} ${isSyncingVideos ? styles.syncSpinning : ''}`}
+                onClick={handleSyncVideos}
+                title="このチャンネルの動画再生数を今すぐ再同期"
+                disabled={isSyncingVideos}
+              >
+                <RotateCw size={11} />
+              </button>
+            </div>
           </div>
 
           {channel.top_videos && channel.top_videos.length > 0 ? (
@@ -565,19 +593,15 @@ export default function ChannelCard({
                         </span>
                       ) : null}
 
-                      <span className={styles.topVideoViewCount} title="累計再生数">
+                      <span 
+                        className={styles.topVideoViewCount} 
+                        title={`累計再生数: ${vid.view_count.toLocaleString()}回${vid.multiplier_vs_avg ? ` (チャンネル平均の ${vid.multiplier_vs_avg.toFixed(1)}倍)` : ''}`}
+                      >
                         <Play size={10} className={styles.statMiniIcon} />
-                        {vid.view_count.toLocaleString()}回
+                        {formatNumber(vid.view_count)}回
                       </span>
-                      {vid.multiplier_vs_avg !== null && vid.multiplier_vs_avg !== undefined && vid.multiplier_vs_avg > 0 && (
-                        <span 
-                          className={`${styles.multiplierChip} ${vid.multiplier_vs_avg >= 2.0 ? styles.multiplierHotChip : ''}`}
-                          title={`チャンネル平均再生数 (${formatNumber(channel.average_views_per_video || 0)}) の ${vid.multiplier_vs_avg.toFixed(1)}倍`}
-                        >
-                          平均比 {vid.multiplier_vs_avg.toFixed(1)}倍
-                        </span>
-                      )}
-                      <span className={styles.topVideoPublishDate}>
+
+                      <span className={styles.topVideoPublishDate} title={`公開日: ${formatDate(vid.published_at)}`}>
                         {formatDate(vid.published_at)}
                       </span>
                     </div>

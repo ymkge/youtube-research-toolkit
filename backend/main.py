@@ -129,8 +129,47 @@ def populate_missing_countries():
     finally:
         db.close()
 
+def cleanup_past_videos_growth():
+    """
+    以前から存在していた過去動画（公開から48時間以上経過）の初回インポート時に、
+    previous_view_count が 0 や NULL のまま残り、誤って急成長要因として扱われないよう修復するデータパッチ。
+    """
+    from app.models.video import Video
+    import datetime
+    
+    db = SessionLocal()
+    try:
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        # last_growth_updated_at が NULL または previous_view_count が 0 で、かつ公開から48時間以上前の動画を抽出
+        stale_videos = db.query(Video).filter(
+            (Video.last_growth_updated_at == None) | (Video.previous_view_count == 0)
+        ).all()
+        
+        fixed_count = 0
+        for vid in stale_videos:
+            if vid.published_at:
+                pub_utc = vid.published_at if vid.published_at.tzinfo else vid.published_at.replace(tzinfo=datetime.timezone.utc)
+                # 公開から48時間以上経過している過去動画の場合
+                if (now_utc - pub_utc) > datetime.timedelta(hours=48):
+                    curr_views = vid.view_count or 0
+                    if vid.previous_view_count != curr_views or vid.daily_view_growth != 0 or vid.last_growth_updated_at is None:
+                        vid.previous_view_count = curr_views
+                        vid.daily_view_growth = 0
+                        vid.last_growth_updated_at = datetime.datetime.utcnow()
+                        fixed_count += 1
+                        
+        if fixed_count > 0:
+            db.commit()
+            print(f"Data Patch: Cleaned up {fixed_count} past videos with uninitialized previous_view_count.")
+    except Exception as e:
+        print(f"Data Patch warning (cleanup_past_videos_growth failed): {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 run_migrations()
 populate_missing_countries()
+cleanup_past_videos_growth()
 
 app = FastAPI(
     title="YouTube Research Toolkit API",

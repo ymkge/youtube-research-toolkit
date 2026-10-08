@@ -150,12 +150,29 @@ def sync_channel_videos(db: Session, channel: Channel, uploads_playlist_id: str,
                         setattr(db_video, key, value)
                 db_video.updated_at = datetime.datetime.utcnow()
             else:
-                # 新規動画の追加 (初速として view_count を daily_view_growth にセット)
+                # 新規動画の追加
                 new_views = video_data.get("view_count", 0)
+                pub_at = video_data.get("published_at")
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+
+                # 公開から48時間以内の新着動画であれば初速として daily_view_growth にセット
+                # 48時間以上前の過去動画の初回インポートであれば前日増分は 0、previous_view_count を現在値として初期化
+                is_fresh_upload = False
+                if pub_at:
+                    pub_at_utc = pub_at if pub_at.tzinfo else pub_at.replace(tzinfo=datetime.timezone.utc)
+                    is_fresh_upload = (now_utc - pub_at_utc) <= datetime.timedelta(hours=48)
+
+                if is_fresh_upload:
+                    initial_growth = new_views
+                    init_prev_views = 0
+                else:
+                    initial_growth = 0
+                    init_prev_views = new_views
+
                 new_video = Video(
                     channel_id=channel.id,
-                    previous_view_count=0,
-                    daily_view_growth=new_views,
+                    previous_view_count=init_prev_views,
+                    daily_view_growth=initial_growth,
                     last_growth_updated_at=datetime.datetime.utcnow(),
                     **video_data
                 )
@@ -392,8 +409,22 @@ def get_channels(db: Session = Depends(get_db)):
 
             latest_view = ch_histories[0].view_count or 0
             prev_view = ch_histories[1].view_count or 0
+
+            # 過去動画の初回インポートによる再生数の急増（偽成長ジャンプ）を防ぐ補正
+            # ch_videos の日次増分合計（オーガニックな成長）が存在する場合、または動画数が前日比で増加している場合
+            organic_growth = sum((v.daily_view_growth or 0) for v in ch_videos)
+            raw_view_diff = latest_view - prev_view
+            prev_vid_cnt = ch_histories[1].video_count or 0
+            curr_vid_cnt = ch_histories[0].video_count or 0
+
+            # 動画本数が増加しており、かつ差分が動画の日次増分合計と大きく乖離している場合（過去動画インポート時）
+            if curr_vid_cnt > prev_vid_cnt and organic_growth > 0 and raw_view_diff > organic_growth:
+                effective_diff = organic_growth
+            else:
+                effective_diff = raw_view_diff
+
             if prev_view > 0:
-                growth_rate = ((latest_view - prev_view) / prev_view) * 100.0
+                growth_rate = (effective_diff / prev_view) * 100.0
                 view_growth_rate = round(growth_rate, 2)
 
         # 広告出稿・外部業者ブースト等の異常検知を実行 (インメモリ高速判定)

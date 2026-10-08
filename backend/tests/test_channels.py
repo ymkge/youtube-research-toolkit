@@ -577,3 +577,126 @@ def test_sync_channel_videos_same_day_resync_guard(db):
     assert v.view_count == 1550
 
 
+def test_sync_channel_videos_past_vs_fresh_upload(db):
+    """
+    新規動画インポート時、直近48時間以内の新着動画は初速として daily_view_growth に計上され、
+    48時間以上前の過去動画は daily_view_growth=0, previous_view_count=view_count として初期化されることを検証。
+    """
+    from app.api.endpoints.channels import sync_channel_videos
+
+    c = Channel(
+        youtube_channel_id="UC_NEW_VID_TEST",
+        title="New Vid Test Channel",
+        subscriber_count=100,
+        view_count=0,
+        video_count=0
+    )
+    db.add(c)
+    db.commit()
+
+    now_utc = datetime.utcnow()
+    fresh_pub = now_utc - timedelta(hours=10)
+    past_pub = now_utc - timedelta(days=30)
+
+    with patch("app.services.youtube.youtube_service.get_recent_videos") as mock_get_vids:
+        mock_get_vids.return_value = [
+            {
+                "youtube_video_id": "v_fresh",
+                "title": "Fresh Video",
+                "view_count": 50,
+                "published_at": fresh_pub
+            },
+            {
+                "youtube_video_id": "v_past",
+                "title": "Past Video",
+                "view_count": 500,
+                "published_at": past_pub
+            }
+        ]
+        sync_channel_videos(db, c, "uploads_new_test")
+
+    v_fresh = db.query(Video).filter(Video.youtube_video_id == "v_fresh").first()
+    v_past = db.query(Video).filter(Video.youtube_video_id == "v_past").first()
+
+    assert v_fresh is not None
+    assert v_fresh.daily_view_growth == 50
+    assert v_fresh.previous_view_count == 0
+
+    assert v_past is not None
+    assert v_past.daily_view_growth == 0
+    assert v_past.previous_view_count == 500
+
+
+def test_get_channels_prevents_growth_jump_on_past_video_import(client, db):
+    """
+    過去動画の初回同期によって SUM(Video.view_count) が急増した場合でも、
+    動画の日次増分合計と大きく乖離した偽成長（ジャンプ）が防止され、
+    オーガニックな成長率として算出されることを検証。
+    """
+    from app.models.channel_stats_history import ChannelStatsHistory
+
+    c = Channel(
+        youtube_channel_id="UC_JUMP_GUARD",
+        title="Jump Guard Channel",
+        subscriber_count=100,
+        view_count=1000,
+        video_count=10
+    )
+    db.add(c)
+    db.commit()
+
+    # 前日履歴: 10本、10,000回
+    yesterday = datetime.utcnow().date() - timedelta(days=1)
+    h_prev = ChannelStatsHistory(
+        channel_id=c.id,
+        subscriber_count=100,
+        view_count=10000,
+        video_count=10,
+        recorded_at=yesterday
+    )
+    # 本日履歴: 12本（過去動画2本追加）、10,600回（過去動画分+550回、既存増+50回）
+    today = datetime.utcnow().date()
+    h_curr = ChannelStatsHistory(
+        channel_id=c.id,
+        subscriber_count=100,
+        view_count=10600,
+        video_count=12,
+        recorded_at=today
+    )
+    db.add_all([h_prev, h_curr])
+
+    # 動画データ: 既存動画の増加合計は +50回
+    v_existing = Video(
+        channel_id=c.id,
+        youtube_video_id="v_ex",
+        title="Existing Video",
+        view_count=10050,
+        previous_view_count=10000,
+        daily_view_growth=50,
+        published_at=datetime.utcnow() - timedelta(days=5)
+    )
+    # 過去動画の初回インポート（daily_view_growth=0）
+    v_past = Video(
+        channel_id=c.id,
+        youtube_video_id="v_past_imported",
+        title="Past Imported Video",
+        view_count=550,
+        previous_view_count=550,
+        daily_view_growth=0,
+        published_at=datetime.utcnow() - timedelta(days=60)
+    )
+    db.add_all([v_existing, v_past])
+    db.commit()
+
+    response = client.get("/api/channels/")
+    assert response.status_code == 200
+    data = response.json()
+    target = next((ch for ch in data if ch["id"] == c.id), None)
+    assert target is not None
+
+    # 本来のオーガニックな増分 (+50回 / 10,000回 = 0.5%) として計算され、
+    # 過去動画分を含めた +600回 (+6.0%) の偽急成長になっていないこと
+    assert target["daily_view_growth_rate"] == 0.5
+
+
+

@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChannelStatsHistory } from '../utils/api';
+import { ChannelStatsHistory, ChannelWeekdayStatsResponse, fetchChannelWeekdayStats } from '../utils/api';
 import styles from './ChannelHistoryChart.module.css';
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -14,9 +17,10 @@ import {
   TooltipProps
 } from 'recharts';
 
-type MetricType = 'subscribers' | 'views' | 'videos';
+type MetricType = 'subscribers' | 'views' | 'videos' | 'weekday';
 
 interface ChannelHistoryChartProps {
+  channelId?: number;
   history: ChannelStatsHistory[];
   isLoading: boolean;
   initialMetric?: MetricType;
@@ -102,14 +106,28 @@ function findNearestHistoryItem(history: ChannelStatsHistory[], currentIndex: nu
   return bestMatch;
 }
 
-export default function ChannelHistoryChart({ history, isLoading, initialMetric = 'subscribers' }: ChannelHistoryChartProps) {
+export default function ChannelHistoryChart({ channelId, history, isLoading, initialMetric = 'subscribers' }: ChannelHistoryChartProps) {
   const [metric, setMetric] = useState<MetricType>(initialMetric);
+  const [weekdayStats, setWeekdayStats] = useState<ChannelWeekdayStatsResponse | null>(null);
+  const [isWeekdayLoading, setIsWeekdayLoading] = useState(false);
+  const [weekdayViewMode, setWeekdayViewMode] = useState<'upload' | 'growth'>('upload');
 
   useEffect(() => {
     if (initialMetric) {
       setMetric(initialMetric);
     }
   }, [initialMetric]);
+
+  // 曜日別タブ選択時に API をフェッチ
+  useEffect(() => {
+    if (metric === 'weekday' && channelId && !weekdayStats && !isWeekdayLoading) {
+      setIsWeekdayLoading(true);
+      fetchChannelWeekdayStats(channelId)
+        .then((data) => setWeekdayStats(data))
+        .catch((err) => console.error('曜日別統計取得エラー:', err))
+        .finally(() => setIsWeekdayLoading(false));
+    }
+  }, [metric, channelId, weekdayStats, isWeekdayLoading]);
 
   // グラフ用データおよび DoD/WoW 事前計算キャッシュ構築 (Hooks は最上部で呼び出す)
   const chartData = React.useMemo(() => {
@@ -184,12 +202,20 @@ export default function ChannelHistoryChart({ history, isLoading, initialMetric 
       gradientId: 'colorVideos',
       gradientColor1: '#00ff7f',
       gradientColor2: '#adff2f'
+    },
+    weekday: {
+      key: 'weekday',
+      label: '曜日別',
+      color: '#ffaa00',
+      gradientId: 'colorWeekday',
+      gradientColor1: '#ffaa00',
+      gradientColor2: '#ff5500'
     }
   };
 
   const config = metricConfigs[metric];
 
-  // カスタムツールチップのコンポーネント
+  // カスタムツールチップのコンポーネント (時系列用)
   const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -230,9 +256,53 @@ export default function ChannelHistoryChart({ history, isLoading, initialMetric 
     return null;
   };
 
+  // 曜日別棒グラフ専用ツールチップ
+  const WeekdayCustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+    if (active && payload && payload.length) {
+      const item = payload[0].payload;
+      return (
+        <div className={styles.customTooltip}>
+          <p className={styles.tooltipDate}>{item.day_name}曜日</p>
+          <div className={styles.tooltipMainValue} style={{ color: '#ffaa00' }}>
+            {weekdayViewMode === 'upload' ? '動画平均再生数' : '平均日次増加量'}: <strong>{formatMetricValue(payload[0].value as number)}回</strong>
+          </div>
+          <div className={styles.tooltipDiffContainer}>
+            <div className={styles.tooltipDiffRow}>
+              <span className={styles.diffLabel}>投稿本数:</span>
+              <span className={styles.diffValueBold}>{item.video_count}本</span>
+            </div>
+            <div className={styles.tooltipDiffRow}>
+              <span className={styles.diffLabel}>該当曜日累計:</span>
+              <span className={styles.diffValueBold}>{item.total_views.toLocaleString()}回</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className={styles.chartContainer}>
       <div className={styles.header}>
+        {metric === 'weekday' && (
+          <div className={styles.weekdayModeSwitch}>
+            <button
+              className={`${styles.modeBtn} ${weekdayViewMode === 'upload' ? styles.modeBtnActive : ''}`}
+              onClick={() => setWeekdayViewMode('upload')}
+              title="該当曜日に公開された動画の1本あたり平均再生数"
+            >
+              投稿曜日別
+            </button>
+            <button
+              className={`${styles.modeBtn} ${weekdayViewMode === 'growth' ? styles.modeBtnActive : ''}`}
+              onClick={() => setWeekdayViewMode('growth')}
+              title="チャンネル全体の日次再生数増加量（曜日別）"
+            >
+              日次視聴増
+            </button>
+          </div>
+        )}
         <div className={styles.tabs}>
           <button
             className={`${styles.tab} ${metric === 'subscribers' ? styles.tabActive : ''}`}
@@ -255,47 +325,141 @@ export default function ChannelHistoryChart({ history, isLoading, initialMetric 
           >
             動画数
           </button>
+          <button
+            className={`${styles.tab} ${metric === 'weekday' ? styles.tabActive : ''}`}
+            style={metric === 'weekday' ? { borderColor: '#ffaa00', color: '#ffffff' } : {}}
+            onClick={() => setMetric('weekday')}
+            title="曜日別の平均再生数・成長傾向"
+          >
+            📅 曜日別
+          </button>
         </div>
       </div>
 
-      <div className={styles.chartWrapper}>
-        <ResponsiveContainer width="100%" height={160}>
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id={config.gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={config.gradientColor1} stopOpacity={0.4} />
-                <stop offset="95%" stopColor={config.gradientColor2} stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#252525" vertical={false} />
-            <XAxis
-              dataKey="date"
-              stroke="#666666"
-              fontSize={10}
-              tickLine={false}
-              axisLine={false}
-              dy={5}
-            />
-            <YAxis
-              stroke="#666666"
-              fontSize={10}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={formatMetricValue}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey={config.key}
-              stroke={config.color}
-              strokeWidth={2}
-              fillOpacity={1}
-              fill={`url(#${config.gradientId})`}
-              activeDot={{ r: 4, strokeWidth: 0, fill: config.color }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {metric === 'weekday' ? (
+        <div className={styles.weekdaySection}>
+          {isWeekdayLoading ? (
+            <div className={styles.chartLoadingMini}>
+              <div className={styles.spinnerMini}></div>
+              <span>曜日別データを集計中...</span>
+            </div>
+          ) : weekdayStats ? (
+            <>
+              {/* サマリーバッジ */}
+              <div className={styles.weekdaySummaryRow}>
+                {weekdayViewMode === 'upload' ? (
+                  <>
+                    <div className={styles.summaryBadgeBest} title="最も動画平均再生数が高い投稿曜日">
+                      <span className={styles.summaryBadgeLabel}>Best投稿曜日:</span>
+                      <strong>{weekdayStats.best_upload_day ? `${weekdayStats.best_upload_day}曜日` : '—'}</strong>
+                    </div>
+                    {weekdayStats.worst_upload_day && (
+                      <div className={styles.summaryBadgeWorst} title="最も動画平均再生数が低い投稿曜日">
+                        <span className={styles.summaryBadgeLabel}>Worst投稿曜日:</span>
+                        <strong>{weekdayStats.worst_upload_day}曜日</strong>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className={styles.summaryBadgeBest} title="最も日次再生数増加が大きい曜日">
+                    <span className={styles.summaryBadgeLabel}>Best視聴活性曜日:</span>
+                    <strong>{weekdayStats.best_growth_day ? `${weekdayStats.best_growth_day}曜日` : '—'}</strong>
+                  </div>
+                )}
+                <span className={styles.weekdayHintText}>
+                  {weekdayViewMode === 'upload' ? '※ JST基準での動画公開曜日ごとの平均' : '※ 日次データ差分の曜日別平均'}
+                </span>
+              </div>
+
+              {/* 棒グラフ */}
+              <div className={styles.chartWrapper}>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={weekdayStats.items} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#252525" vertical={false} />
+                    <XAxis
+                      dataKey="day_name"
+                      stroke="#888888"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      dy={5}
+                      tickFormatter={(val) => `${val}`}
+                    />
+                    <YAxis
+                      stroke="#666666"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={formatMetricValue}
+                    />
+                    <Tooltip content={<WeekdayCustomTooltip />} cursor={{ fill: 'rgba(255, 170, 0, 0.08)' }} />
+                    <Bar
+                      dataKey={weekdayViewMode === 'upload' ? 'average_views' : 'average_daily_growth'}
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {weekdayStats.items.map((entry) => {
+                        const isBest = weekdayViewMode === 'upload'
+                          ? entry.day_name === weekdayStats.best_upload_day
+                          : entry.day_name === weekdayStats.best_growth_day;
+                        const isWorst = weekdayViewMode === 'upload' && entry.day_name === weekdayStats.worst_upload_day;
+
+                        let fillColor = '#ffaa00'; // 通常カラー（琥珀・アンバー）
+                        if (isBest) fillColor = '#00ff7f'; // Bestはネオングリーン
+                        if (isWorst) fillColor = '#555566'; // Worstは落ち着いたダークグレー
+
+                        return <Cell key={`cell-${entry.weekday}`} fill={fillColor} />;
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          ) : (
+            <div className={styles.chartLoadingMini}>
+              <span>曜日別データが取得できませんでした。</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className={styles.chartWrapper}>
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id={config.gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={config.gradientColor1} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={config.gradientColor2} stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#252525" vertical={false} />
+              <XAxis
+                dataKey="date"
+                stroke="#666666"
+                fontSize={10}
+                tickLine={false}
+                axisLine={false}
+                dy={5}
+              />
+              <YAxis
+                stroke="#666666"
+                fontSize={10}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={formatMetricValue}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey={config.key}
+                stroke={config.color}
+                strokeWidth={2}
+                fillOpacity={1}
+                fill={`url(#${config.gradientId})`}
+                activeDot={{ r: 4, strokeWidth: 0, fill: config.color }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }

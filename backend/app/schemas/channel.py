@@ -57,3 +57,20 @@ class ChannelResponse(BaseModel):
 
 class ChannelSortRequest(BaseModel):
     ids: List[int]
+
+class WeekdayStatItem(BaseModel):
+    weekday: int  # 0: 月, 1: 火, 2: 水, 3: 木, 4: 金, 5: 土, 6: 日
+    day_name: str  # "月", "火", "水", "木", "金", "土", "日"
+    video_count: int  # 該当曜日に投稿された動画本数
+    average_views: float  # 該当曜日投稿動画の平均再生数
+    total_views: int  # 該当曜日投稿動画の合計再生数
+    average_daily_growth: float  # 該当曜日の平均日次再生数増加量 (履歴ベース)
+
+class ChannelWeekdayStatsResponse(BaseModel):
+    channel_id: int
+    channel_title: str
+    best_upload_day: Optional[str] = None  # 最も動画平均再生数が高い曜日 (例: "日")
+    worst_upload_day: Optional[str] = None  # 最も動画平均再生数が低い曜日 (例: "金")
+    best_growth_day: Optional[str] = None  # 最も日次増加が大きい曜日 (例: "木")
+    items: List[WeekdayStatItem]
+

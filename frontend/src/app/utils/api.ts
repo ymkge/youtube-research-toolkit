@@ -63,6 +63,24 @@ export interface ChannelStatsHistory {
   recorded_at: string; // YYYY-MM-DD
 }
 
+export interface WeekdayStatItem {
+  weekday: number; // 0: 月, 1: 火, 2: 水, 3: 木, 4: 金, 5: 土, 6: 日
+  day_name: string; // "月", "火", "水", "木", "金", "土", "日"
+  video_count: number; // 該当曜日に投稿された動画本数
+  average_views: number; // 該当曜日投稿動画の平均再生数
+  total_views: number; // 該当曜日投稿動画の合計再生数
+  average_daily_growth: number; // 該当曜日の平均日次再生数増加量 (履歴ベース)
+}
+
+export interface ChannelWeekdayStatsResponse {
+  channel_id: number;
+  channel_title: string;
+  best_upload_day: string | null;
+  worst_upload_day: string | null;
+  best_growth_day: string | null;
+  items: WeekdayStatItem[];
+}
+
 export interface AIAnalysisTheme {
   theme_name: string;
   reason_for_popularity: string;
@@ -196,6 +214,17 @@ export async function fetchChannelHistory(channelId: number): Promise<ChannelSta
   const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/history`);
   if (!res.ok) {
     throw new Error('統計履歴の取得に失敗しました。');
+  }
+  return res.json();
+}
+
+/**
+ * チャンネルの曜日別統計データ（動画平均再生数・日次増分）を取得します。
+ */
+export async function fetchChannelWeekdayStats(channelId: number): Promise<ChannelWeekdayStatsResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/weekday-stats`);
+  if (!res.ok) {
+    throw new Error('曜日別統計データの取得に失敗しました。');
   }
   return res.json();
 }

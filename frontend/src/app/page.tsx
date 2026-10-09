@@ -15,7 +15,7 @@ type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
 type SortOrder = 'desc' | 'asc';
 type RankFilter = 'ALL' | 'DIAMOND' | 'GOLD' | 'SILVER' | 'BRONZE' | 'PINNED';
 type SignalFilter = 'ALL' | 'HOT' | 'DECLINING' | 'AD_SUSPECTED';
-type TrendMetric = 'views' | 'subscribers' | 'videos';
+type TrendMetric = 'views' | 'subscribers' | 'videos' | 'weekday';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'comparison'>('dashboard');
@@ -461,6 +461,7 @@ export default function Home() {
                           <option value="views">🎬 指標: 総再生数</option>
                           <option value="subscribers">👥 指標: 登録者数</option>
                           <option value="videos">📹 指標: 動画数</option>
+                          <option value="weekday">📅 指標: 曜日別</option>
                         </select>
                       </div>
                     </div>

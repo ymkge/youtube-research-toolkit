@@ -699,4 +699,103 @@ def test_get_channels_prevents_growth_jump_on_past_video_import(client, db):
     assert target["daily_view_growth_rate"] == 0.5
 
 
+def test_get_channel_weekday_stats(client, db):
+    """
+    曜日別動画平均再生数および平均日次増加量の集計API (/api/channels/{id}/weekday-stats) の検証。
+    """
+    from app.models.channel_stats_history import ChannelStatsHistory
+
+    c = Channel(
+        youtube_channel_id="UC_WEEKDAY_TEST",
+        title="Weekday Test Channel",
+        subscriber_count=100,
+        view_count=5000,
+        video_count=3
+    )
+    db.add(c)
+    db.commit()
+
+    # 動画作成:
+    # 2026-10-04 (日曜日 JST: 2026-10-04 12:00:00 JST / 03:00:00 UTC) -> views: 1000
+    # 2026-10-05 (月曜日 JST: 2026-10-05 12:00:00 JST / 03:00:00 UTC) -> views: 200
+    # 2026-10-05 (月曜日 JST: 2026-10-05 18:00:00 JST / 09:00:00 UTC) -> views: 400
+    v_sun = Video(
+        channel_id=c.id,
+        youtube_video_id="v_w_sun",
+        title="Sunday Video",
+        view_count=1000,
+        published_at=datetime(2026, 10, 4, 3, 0, 0)
+    )
+    v_mon1 = Video(
+        channel_id=c.id,
+        youtube_video_id="v_w_mon1",
+        title="Monday Video 1",
+        view_count=200,
+        published_at=datetime(2026, 10, 5, 3, 0, 0)
+    )
+    v_mon2 = Video(
+        channel_id=c.id,
+        youtube_video_id="v_w_mon2",
+        title="Monday Video 2",
+        view_count=400,
+        published_at=datetime(2026, 10, 5, 9, 0, 0)
+    )
+    db.add_all([v_sun, v_mon1, v_mon2])
+
+    # 履歴作成 (日曜日 ➔ 月曜日):
+    # 2026-10-04 (日): 4000
+    # 2026-10-05 (月): 4500 (+500 on Mon)
+    h_sun = ChannelStatsHistory(
+        channel_id=c.id,
+        subscriber_count=100,
+        view_count=4000,
+        video_count=2,
+        recorded_at=datetime(2026, 10, 4).date()
+    )
+    h_mon = ChannelStatsHistory(
+        channel_id=c.id,
+        subscriber_count=100,
+        view_count=4500,
+        video_count=3,
+        recorded_at=datetime(2026, 10, 5).date()
+    )
+    db.add_all([h_sun, h_mon])
+    db.commit()
+
+    response = client.get(f"/api/channels/{c.id}/weekday-stats")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["channel_id"] == c.id
+    assert data["channel_title"] == "Weekday Test Channel"
+    assert data["best_upload_day"] == "日"  # 日曜日は1本で1000回
+    assert data["worst_upload_day"] == "月" # 月曜日は2本で平均300回
+    assert data["best_growth_day"] == "月"  # 月曜日に日次+500回
+
+    items = data["items"]
+    assert len(items) == 7
+
+    # 月曜日 (index 0)
+    mon = items[0]
+    assert mon["day_name"] == "月"
+    assert mon["video_count"] == 2
+    assert mon["total_views"] == 600
+    assert mon["average_views"] == 300.0
+    assert mon["average_daily_growth"] == 500.0
+
+    # 日曜日 (index 6)
+    sun = items[6]
+    assert sun["day_name"] == "日"
+    assert sun["video_count"] == 1
+    assert sun["total_views"] == 1000
+    assert sun["average_views"] == 1000.0
+
+    # 火曜日 (index 1: 動画なし)
+    tue = items[1]
+    assert tue["day_name"] == "火"
+    assert tue["video_count"] == 0
+    assert tue["average_views"] == 0.0
+
+
+
 

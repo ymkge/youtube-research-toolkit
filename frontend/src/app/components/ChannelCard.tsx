@@ -17,7 +17,7 @@ interface ChannelCardProps {
   onShowAIAnalysis: (channel: Channel) => void;
   onToggleOwnChannel?: (channelId: number) => void;
   isAllTrendExpanded?: boolean;
-  allTrendMetric?: 'subscribers' | 'views' | 'videos';
+  allTrendMetric?: 'subscribers' | 'views' | 'videos' | 'weekday';
   isHotFilterActive?: boolean;
 }
 
@@ -625,7 +625,7 @@ export default function ChannelCard({
 
       {/* ★ トレンド折れ線グラフコンポーネント (アコーディオン展開されるエリア) */}
       {showChart && (
-        <ChannelHistoryChart history={history} isLoading={isHistoryLoading} initialMetric={allTrendMetric} />
+        <ChannelHistoryChart channelId={channel.id} history={history} isLoading={isHistoryLoading} initialMetric={allTrendMetric} />
       )}
     </div>
   );

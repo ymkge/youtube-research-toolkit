@@ -5,7 +5,14 @@ from app.db.session import get_db
 from app.models.channel import Channel
 from app.models.video import Video
 from app.models.channel_stats_history import ChannelStatsHistory
-from app.schemas.channel import ChannelCreateRequest, ChannelResponse, ChannelSortRequest, TopVideoResponse
+from app.schemas.channel import (
+    ChannelCreateRequest,
+    ChannelResponse,
+    ChannelSortRequest,
+    TopVideoResponse,
+    ChannelWeekdayStatsResponse,
+    WeekdayStatItem
+)
 from app.schemas.channel_stats_history import ChannelStatsHistoryResponse
 from app.schemas.sync_status import SyncStatusResponse, FetchMissingResponse, MissingChannelItem
 from app.schemas.milestones import ChannelMilestonesResponse, ChannelMilestoneItem
@@ -589,6 +596,89 @@ def get_channel_history(channel_id: int, db: Session = Depends(get_db)):
     ).order_by(ChannelStatsHistory.recorded_at.asc()).all()
     
     return history
+
+@router.get("/{channel_id}/weekday-stats", response_model=ChannelWeekdayStatsResponse)
+def get_channel_weekday_stats(channel_id: int, db: Session = Depends(get_db)):
+    """
+    指定されたチャンネルについて、曜日別 (月〜日) の動画平均再生数および平均日次再生数増加量を集計して返却します。
+    """
+    db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+
+    # 1. 投稿動画の曜日別集計 (JST: UTC+9 基準)
+    from collections import defaultdict
+    videos = db.query(Video).filter(Video.channel_id == channel_id).all()
+
+    DAY_NAMES = ["月", "火", "水", "木", "金", "土", "日"]
+    jst = datetime.timezone(datetime.timedelta(hours=9))
+
+    # 各曜日の再生数リスト [weekday: [view1, view2, ...]]
+    weekday_video_views = defaultdict(list)
+    for v in videos:
+        if v.published_at:
+            pub_dt = v.published_at if v.published_at.tzinfo else v.published_at.replace(tzinfo=datetime.timezone.utc)
+            pub_jst = pub_dt.astimezone(jst)
+            weekday_video_views[pub_jst.weekday()].append(v.view_count or 0)
+
+    # 2. チャンネル日次履歴ベースの曜日別日次増分集計
+    histories = db.query(ChannelStatsHistory).filter(
+        ChannelStatsHistory.channel_id == channel_id
+    ).order_by(ChannelStatsHistory.recorded_at.asc()).all()
+
+    weekday_daily_growths = defaultdict(list)
+    for i in range(1, len(histories)):
+        prev_h = histories[i - 1]
+        curr_h = histories[i]
+        diff = max(0, (curr_h.view_count or 0) - (prev_h.view_count or 0))
+        # recorded_at は JST 日付
+        rec_date = curr_h.recorded_at
+        weekday_daily_growths[rec_date.weekday()].append(diff)
+
+    # 3. 7曜日の統計アイテムを構築
+    items: List[WeekdayStatItem] = []
+    for w in range(7):
+        v_list = weekday_video_views[w]
+        v_cnt = len(v_list)
+        t_views = sum(v_list)
+        avg_views = round(t_views / v_cnt, 1) if v_cnt > 0 else 0.0
+
+        g_list = weekday_daily_growths[w]
+        avg_growth = round(sum(g_list) / len(g_list), 1) if g_list else 0.0
+
+        items.append(WeekdayStatItem(
+            weekday=w,
+            day_name=DAY_NAMES[w],
+            video_count=v_cnt,
+            average_views=avg_views,
+            total_views=t_views,
+            average_daily_growth=avg_growth
+        ))
+
+    # 4. Best / Worst 曜日の算出
+    # 動画が1本以上投稿されている曜日の中から判定
+    active_items = [it for it in items if it.video_count > 0]
+    best_upload_day = None
+    worst_upload_day = None
+    if active_items:
+        best_upload_day = max(active_items, key=lambda it: it.average_views).day_name
+        worst_upload_day = min(active_items, key=lambda it: it.average_views).day_name
+
+    growth_active = [it for it in items if it.average_daily_growth > 0]
+    best_growth_day = max(growth_active, key=lambda it: it.average_daily_growth).day_name if growth_active else None
+
+    return ChannelWeekdayStatsResponse(
+        channel_id=db_channel.id,
+        channel_title=db_channel.title,
+        best_upload_day=best_upload_day,
+        worst_upload_day=worst_upload_day,
+        best_growth_day=best_growth_day,
+        items=items
+    )
+
 
 @router.post("/{channel_id}/analyze", response_model=AIAnalysisResponse)
 def analyze_channel(channel_id: int, force: bool = Query(False), db: Session = Depends(get_db)):

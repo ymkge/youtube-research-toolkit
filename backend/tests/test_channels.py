@@ -796,6 +796,73 @@ def test_get_channel_weekday_stats(client, db):
     assert tue["video_count"] == 0
     assert tue["average_views"] == 0.0
 
+def test_update_channel_tags_and_get_all_tags(client, db):
+    """
+    Issue #121: チャンネルへのタグ付与・更新、入力サニタイズ（トリム・重複排除・空文字除外）、
+    および全体タグ集計 API (GET /api/channels/tags) の動作を検証します。
+    """
+    # チャンネル1, 2 を登録
+    c1 = Channel(
+        youtube_channel_id="UC_tag_test_1",
+        title="Pomodoro Channel",
+        subscriber_count=1000,
+        view_count=50000,
+        video_count=10,
+        sort_order=1
+    )
+    c2 = Channel(
+        youtube_channel_id="UC_tag_test_2",
+        title="Study Channel",
+        subscriber_count=2000,
+        view_count=100000,
+        video_count=20,
+        sort_order=2
+    )
+    db.add_all([c1, c2])
+    db.commit()
+    db.refresh(c1)
+    db.refresh(c2)
+    c1_id = c1.id
+    c2_id = c2.id
 
+    # 1. チャンネル1にタグを付与 (トリム、重複、空文字を含む)
+    put_res1 = client.put(f"/api/channels/{c1_id}/tags", json={
+        "tags": [" ポモドーロ ", "作業用BGM", "ポモドーロ", "   ", ""]
+    })
+    assert put_res1.status_code == 200
+    data1 = put_res1.json()
+    assert data1["tags"] == ["ポモドーロ", "作業用BGM"]
 
+    # 2. チャンネル2にタグを付与
+    put_res2 = client.put(f"/api/channels/{c2_id}/tags", json={
+        "tags": ["ポモドーロ", "勉強"]
+    })
+    assert put_res2.status_code == 200
+    data2 = put_res2.json()
+    assert data2["tags"] == ["ポモドーロ", "勉強"]
 
+    # 3. GET /api/channels/tags で全体集計を取得
+    tags_res = client.get("/api/channels/tags")
+    assert tags_res.status_code == 200
+    tag_summaries = tags_res.json()
+    # ポモドーロは2件、他は1件
+    assert len(tag_summaries) == 3
+    assert tag_summaries[0]["tag"] == "ポモドーロ"
+    assert tag_summaries[0]["count"] == 2
+    # 残りの2件
+    other_tags = {item["tag"]: item["count"] for item in tag_summaries[1:]}
+    assert other_tags.get("作業用BGM") == 1
+    assert other_tags.get("勉強") == 1
+
+    # 4. GET /api/channels/ で各チャンネルの tags が含まれていることを検証
+    list_res = client.get("/api/channels/")
+    assert list_res.status_code == 200
+    channels_list = list_res.json()
+    ch1 = next(c for c in channels_list if c["id"] == c1_id)
+    ch2 = next(c for c in channels_list if c["id"] == c2_id)
+    assert ch1["tags"] == ["ポモドーロ", "作業用BGM"]
+    assert ch2["tags"] == ["ポモドーロ", "勉強"]
+
+    # 5. 存在しないチャンネルIDの更新で 404 が返ることを確認
+    bad_res = client.put("/api/channels/999999/tags", json={"tags": ["テスト"]})
+    assert bad_res.status_code == 404

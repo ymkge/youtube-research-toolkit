@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel, syncSingleChannelVideos } from '../utils/api';
+import { Channel, fetchChannelHistory, ChannelStatsHistory, updateChannelPin, deleteChannel, toggleOwnChannel, syncSingleChannelVideos, updateChannelTags } from '../utils/api';
 import styles from './ChannelCard.module.css';
 import ChannelHistoryChart from './ChannelHistoryChart';
 import ChannelAvatar from './ChannelAvatar';
-import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost, ExternalLink, RotateCw } from 'lucide-react';
+import { Users, Tv, Play, Clock, Trash2, Calendar, BarChart2, Pin, MoreVertical, GripVertical, TrendingUp, TrendingDown, Brain, Sparkles, AlertCircle, CheckCircle2, Trophy, ArrowRight, Flame, Home, Megaphone, AlertTriangle, Ghost, ExternalLink, RotateCw, Tag, Plus, X } from 'lucide-react';
 
 interface ChannelCardProps {
   channel: Channel;
   onDelete: (channelId: number) => Promise<void>;
   onPinToggle: (channelId: number, isPinned: boolean) => Promise<void>;
   onUpdateChannel?: (updatedChannel: Channel) => void;
+  onSelectTag?: (tag: string) => void;
+  onUpdateTags?: (channelId: number, tags: string[]) => void;
+  allAvailableTags?: string[];
   onDragStart: (e: React.DragEvent, id: number) => void;
   onDragOver: (e: React.DragEvent, id: number) => void;
   onDragEnd: (e: React.DragEvent) => void;
@@ -79,11 +82,19 @@ export default function ChannelCard({
   onToggleOwnChannel,
   isAllTrendExpanded,
   allTrendMetric,
-  isHotFilterActive = false
+  isHotFilterActive = false,
+  onSelectTag,
+  onUpdateTags,
+  allAvailableTags = []
 }: ChannelCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // タグ編集用ステート
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [isUpdatingTags, setIsUpdatingTags] = useState(false);
   
   // トレンドグラフ表示用ステート
   const [showChart, setShowChart] = useState(false);
@@ -94,6 +105,55 @@ export default function ChannelCard({
   // 成長牽引動画 TOP3 表示用ステート
   const [showTopVideos, setShowTopVideos] = useState(false);
   const [isSyncingVideos, setIsSyncingVideos] = useState(false);
+
+  const handleAddTag = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = newTagInput.trim();
+    if (!trimmed || isUpdatingTags) return;
+
+    const currentTags = channel.tags || [];
+    if (currentTags.includes(trimmed)) {
+      setNewTagInput('');
+      setIsAddingTag(false);
+      return;
+    }
+
+    const updatedTags = [...currentTags, trimmed];
+    setIsUpdatingTags(true);
+    try {
+      await updateChannelTags(channel.id, updatedTags);
+      if (onUpdateTags) {
+        onUpdateTags(channel.id, updatedTags);
+      }
+      setNewTagInput('');
+      setIsAddingTag(false);
+    } catch (err: any) {
+      console.error('タグ追加エラー:', err);
+      alert(err.message || 'タグの追加に失敗しました。');
+    } finally {
+      setIsUpdatingTags(false);
+    }
+  };
+
+  const handleRemoveTag = async (e: React.MouseEvent, tagToRemove: string) => {
+    e.stopPropagation();
+    if (isUpdatingTags) return;
+
+    const currentTags = channel.tags || [];
+    const updatedTags = currentTags.filter((t) => t !== tagToRemove);
+    setIsUpdatingTags(true);
+    try {
+      await updateChannelTags(channel.id, updatedTags);
+      if (onUpdateTags) {
+        onUpdateTags(channel.id, updatedTags);
+      }
+    } catch (err: any) {
+      console.error('タグ削除エラー:', err);
+      alert(err.message || 'タグの削除に失敗しました。');
+    } finally {
+      setIsUpdatingTags(false);
+    }
+  };
 
   const handleSyncVideos = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -441,6 +501,103 @@ export default function ChannelCard({
       <p className={styles.description}>
         {channel.description || '説明はありません。'}
       </p>
+
+      {/* 🏷️ 分類タグエリア */}
+      <div className={styles.tagsRow}>
+        <div className={styles.tagsHeader}>
+          <Tag size={12} className={styles.tagSectionIcon} />
+          <span className={styles.tagSectionLabel}>タグ:</span>
+        </div>
+        <div className={styles.tagList}>
+          {channel.tags && channel.tags.map((tag) => (
+            <span
+              key={tag}
+              className={styles.tagBadge}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectTag?.(tag);
+              }}
+              title={`クリックして「${tag}」で絞り込み`}
+            >
+              <span className={styles.tagText}>{tag}</span>
+              <button
+                type="button"
+                className={styles.removeTagBtn}
+                onClick={(e) => handleRemoveTag(e, tag)}
+                title={`「${tag}」タグを削除`}
+                disabled={isUpdatingTags}
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+
+          {isAddingTag ? (
+            <form
+              className={styles.addTagForm}
+              onSubmit={handleAddTag}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="text"
+                className={styles.addTagInput}
+                placeholder="タグ名 (例: ポモドーロ)"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                list={`datalist-tags-${channel.id}`}
+                autoFocus
+                disabled={isUpdatingTags}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setIsAddingTag(false);
+                    setNewTagInput('');
+                  }
+                }}
+              />
+              {allAvailableTags && allAvailableTags.length > 0 && (
+                <datalist id={`datalist-tags-${channel.id}`}>
+                  {allAvailableTags
+                    .filter((t) => !(channel.tags || []).includes(t))
+                    .map((t) => (
+                      <option key={t} value={t} />
+                    ))}
+                </datalist>
+              )}
+              <button
+                type="submit"
+                className={styles.submitTagBtn}
+                disabled={!newTagInput.trim() || isUpdatingTags}
+              >
+                追加
+              </button>
+              <button
+                type="button"
+                className={styles.cancelTagBtn}
+                onClick={() => {
+                  setIsAddingTag(false);
+                  setNewTagInput('');
+                }}
+              >
+                取消
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className={styles.addTagTriggerBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsAddingTag(true);
+              }}
+              title="新しいタグを追加"
+              disabled={isUpdatingTags}
+            >
+              <Plus size={11} />
+              <span>タグ追加</span>
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* 分析メトリクス用チップ行 */}
       <div className={styles.chipsRow}>

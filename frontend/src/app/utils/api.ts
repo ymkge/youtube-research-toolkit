@@ -30,6 +30,7 @@ export interface Channel {
   anomaly_type?: string | null; // 異常検知タイプ ("ad_suspected" | "artificial_sub_growth" | "ghost_views" | null)
   anomaly_score?: number | null; // 疑わしさスコア (0.0 ~ 1.0)
   anomaly_reason?: string | null; // 検知理由
+  tags?: string[]; // チャンネルに付与された分類タグ一覧
   top_videos?: TopVideo[]; // 再生数TOP3動画
   updated_at: string;
 }
@@ -424,6 +425,41 @@ export async function syncSingleChannelVideos(channelId: number): Promise<Channe
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.detail || '動画の同期に失敗しました。');
+  }
+  return res.json();
+}
+
+export interface TagSummary {
+  tag: string;
+  count: number;
+}
+
+/**
+ * チャンネルのタグ一覧を更新します。
+ */
+export async function updateChannelTags(channelId: number, tags: string[]): Promise<Channel> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/${channelId}/tags`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ tags }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'タグの更新に失敗しました。');
+  }
+  return res.json();
+}
+
+/**
+ * 全チャンネルで使われているユニークタグの一覧と付与件数を取得します。
+ */
+export async function fetchUniqueTags(): Promise<TagSummary[]> {
+  const res = await fetch(`${API_BASE_URL}/api/channels/tags`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'タグ一覧の取得に失敗しました。');
   }
   return res.json();
 }

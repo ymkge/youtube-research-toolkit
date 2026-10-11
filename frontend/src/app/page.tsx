@@ -8,7 +8,7 @@ import AIAnalysisModal from './components/AIAnalysisModal';
 import GrowthComparisonView from './components/GrowthComparisonView';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { MilestoneModal } from './components/MilestoneModal';
-import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2, Trophy, Flame, Megaphone } from 'lucide-react';
+import { LayoutDashboard, LineChart as LineChartIcon, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Filter, RotateCcw, TrendingUp, TrendingDown, BarChart2, Trophy, Flame, Megaphone, Tag } from 'lucide-react';
 import styles from './page.module.css';
 
 type SortKey = 'custom' | 'subscribers' | 'views' | 'videos' | 'avg_views';
@@ -26,6 +26,7 @@ export default function Home() {
 
   // フィルター＆ソート＆トレンド一括表示用ステート
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string>('ALL');
   const [rankFilter, setRankFilter] = useState<RankFilter>('ALL');
   const [signalFilter, setSignalFilter] = useState<SignalFilter>('ALL');
   const [excludeAnomaly, setExcludeAnomaly] = useState(false);
@@ -33,6 +34,35 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [isAllTrendExpanded, setIsAllTrendExpanded] = useState(false);
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('views');
+
+  // 全ユニークタグ一覧と各タグ件数の即時集計 (Single Source of Truth)
+  const tagSummaries = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    channels.forEach((c) => {
+      if (c.tags && Array.isArray(c.tags)) {
+        c.tags.forEach((t) => {
+          if (t && t.trim()) {
+            const clean = t.trim();
+            counts[clean] = (counts[clean] || 0) + 1;
+          }
+        });
+      }
+    });
+    return Object.entries(counts)
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  }, [channels]);
+
+  const allAvailableTags = React.useMemo(() => {
+    return tagSummaries.map((s) => s.tag);
+  }, [tagSummaries]);
+
+  // タグ更新ハンドラー (既存メトリクス・バッジ欠落を完全に防ぐ安全マージ)
+  const handleUpdateTags = (channelId: number, newTags: string[]) => {
+    setChannels((prev) =>
+      prev.map((c) => (c.id === channelId ? { ...c, tags: newTags } : c))
+    );
+  };
 
   // AI分析表示モーダル用のステート
   const [activeAnalysisChannel, setActiveAnalysisChannel] = useState<Channel | null>(null);
@@ -56,6 +86,12 @@ export default function Home() {
 
       if (excludeAnomaly && channel.anomaly_type) {
         return false;
+      }
+
+      if (selectedTag !== 'ALL') {
+        if (!channel.tags || !channel.tags.includes(selectedTag)) {
+          return false;
+        }
       }
 
       if (signalFilter === 'HOT') {
@@ -122,10 +158,11 @@ export default function Home() {
 
       return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [channels, searchQuery, rankFilter, signalFilter, excludeAnomaly, sortBy, sortOrder]);
+  }, [channels, searchQuery, selectedTag, rankFilter, signalFilter, excludeAnomaly, sortBy, sortOrder]);
 
   const resetFilters = () => {
     setSearchQuery('');
+    setSelectedTag('ALL');
     setRankFilter('ALL');
     setSignalFilter('ALL');
     setExcludeAnomaly(false);
@@ -357,6 +394,33 @@ export default function Home() {
                       )}
                     </div>
 
+                    {/* タグフィルター */}
+                    <div className={styles.tagFilterWrapper}>
+                      <Tag size={13} className={styles.tagFilterIcon} />
+                      <select
+                        value={selectedTag}
+                        onChange={(e) => setSelectedTag(e.target.value)}
+                        className={`${styles.tagSelect} ${selectedTag !== 'ALL' ? styles.tagSelectActive : ''}`}
+                        title="登録チャンネルのタグで絞り込み"
+                      >
+                        <option value="ALL">🏷️ タグ: すべて ({channels.length})</option>
+                        {tagSummaries.map((ts) => (
+                          <option key={ts.tag} value={ts.tag}>
+                            🏷️ {ts.tag} ({ts.count})
+                          </option>
+                        ))}
+                      </select>
+                      {selectedTag !== 'ALL' && (
+                        <button
+                          onClick={() => setSelectedTag('ALL')}
+                          className={styles.clearTagBtn}
+                          title="タグフィルターを解除"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+
                     {/* 規模ランク・ピン留めフィルターチップ */}
                     <div className={styles.filterChipGroup}>
                       <button
@@ -553,6 +617,9 @@ export default function Home() {
                       isAllTrendExpanded={isAllTrendExpanded}
                       allTrendMetric={trendMetric}
                       isHotFilterActive={signalFilter === 'HOT'}
+                      onSelectTag={(tag) => setSelectedTag(tag)}
+                      onUpdateTags={handleUpdateTags}
+                      allAvailableTags={allAvailableTags}
                     />
                   ))}
                 </div>

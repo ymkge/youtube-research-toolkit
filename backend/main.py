@@ -73,6 +73,13 @@ def run_migrations():
             db.commit()
             print("Migration: 'videos_synced_at' column added successfully.")
 
+        # tags カラムの追加 (Issue #121)
+        if 'tags' not in columns:
+            print("Migration: Adding 'tags' column to 'channels' table...")
+            db.execute(text("ALTER TABLE channels ADD COLUMN tags TEXT DEFAULT '[]'"))
+            db.commit()
+            print("Migration: 'tags' column added successfully.")
+
         # videos テーブルのカラムマイグレーション
         video_columns = [col['name'] for col in inspector.get_columns('videos')]
         if 'previous_view_count' not in video_columns:

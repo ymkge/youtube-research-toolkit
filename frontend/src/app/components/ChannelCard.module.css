@@ -612,6 +612,167 @@
   height: 2.8em;
 }
 
+/* 🏷️ 分類タグ表示エリア */
+.tagsRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+  min-height: 24px;
+}
+
+.tagsHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #888888;
+  font-size: 0.75rem;
+  padding-top: 2px;
+  user-select: none;
+}
+
+.tagSectionIcon {
+  color: #38bdf8;
+}
+
+.tagSectionLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #999999;
+}
+
+.tagList {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.tagBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tagBadge:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.tagText {
+  white-space: nowrap;
+}
+
+.removeTagBtn {
+  background: transparent;
+  border: none;
+  color: #7dd3fc;
+  cursor: pointer;
+  padding: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  opacity: 0.6;
+  transition: all 0.15s ease;
+}
+
+.removeTagBtn:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+}
+
+.addTagTriggerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  color: #888888;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.addTagTriggerBtn:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.addTagForm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.addTagInput {
+  background: #18181b;
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  outline: none;
+  width: 120px;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.25);
+}
+
+.addTagInput::placeholder {
+  color: #666666;
+}
+
+.submitTagBtn {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.submitTagBtn:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.submitTagBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelTagBtn {
+  background: transparent;
+  color: #888888;
+  border: none;
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.cancelTagBtn:hover {
+  color: #ffffff;
+}
+
 .chipsRow {
   display: flex;
   gap: 0.4rem;

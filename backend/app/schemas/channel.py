@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime
 from typing import Optional, List
+import json
 
 class ChannelCreateRequest(BaseModel):
     identifier: str  # チャンネルID (UC...) またはハンドル (@...)
@@ -50,10 +51,38 @@ class ChannelResponse(BaseModel):
     anomaly_type: Optional[str] = None
     anomaly_score: Optional[float] = None
     anomaly_reason: Optional[str] = None
+    tags: List[str] = []
     top_videos: List[TopVideoResponse] = []
     updated_at: datetime
 
+    @field_validator('tags', mode='before')
+    @classmethod
+    def parse_tags(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return [str(t).strip() for t in v if str(t).strip()]
+        if isinstance(v, str):
+            v_str = v.strip()
+            if not v_str or v_str == "[]":
+                return []
+            try:
+                parsed = json.loads(v_str)
+                if isinstance(parsed, list):
+                    return [str(t).strip() for t in parsed if str(t).strip()]
+                return []
+            except Exception:
+                return []
+        return []
+
     model_config = ConfigDict(from_attributes=True)
+
+class ChannelTagsUpdateRequest(BaseModel):
+    tags: List[str]
+
+class TagSummaryItem(BaseModel):
+    tag: str
+    count: int
 
 class ChannelSortRequest(BaseModel):
     ids: List[int]

@@ -9,6 +9,8 @@ from app.schemas.channel import (
     ChannelCreateRequest,
     ChannelResponse,
     ChannelSortRequest,
+    ChannelTagsUpdateRequest,
+    TagSummaryItem,
     TopVideoResponse,
     ChannelWeekdayStatsResponse,
     WeekdayStatItem
@@ -344,6 +346,27 @@ def sync_parent_channel_stats(db: Session, channel_id: int):
 
         db.flush()
 
+@router.get("/tags", response_model=List[TagSummaryItem])
+def get_all_tags(db: Session = Depends(get_db)):
+    """
+    登録されている全チャンネルから現在付与されているタグのユニーク一覧と、それぞれの付与チャンネル数を返却します。
+    """
+    channels = db.query(Channel).all()
+    tag_counts = {}
+    for c in channels:
+        if c.tags:
+            try:
+                parsed = json.loads(c.tags)
+                if isinstance(parsed, list):
+                    for t in parsed:
+                        t_clean = str(t).strip()
+                        if t_clean:
+                            tag_counts[t_clean] = tag_counts.get(t_clean, 0) + 1
+            except Exception:
+                pass
+    sorted_tags = sorted(tag_counts.items(), key=lambda x: (-x[1], x[0]))
+    return [TagSummaryItem(tag=tag, count=count) for tag, count in sorted_tags]
+
 @router.get("/", response_model=List[ChannelResponse])
 def get_channels(db: Session = Depends(get_db)):
     """
@@ -510,6 +533,47 @@ def update_channel_pin(channel_id: int, is_pinned: bool, db: Session = Depends(g
             detail="指定されたチャンネルが見つかりませんでした。"
         )
     db_channel.is_pinned = is_pinned
+    db.commit()
+    db.refresh(db_channel)
+    
+    avg_duration, avg_views, avg_freq, latest_upload, s_cnt, l_cnt, r_cnt, s_rat, l_rat, w_cnt = calculate_channel_metrics(db, db_channel.id)
+    db_channel.average_video_duration = avg_duration
+    db_channel.average_views_per_video = avg_views
+    db_channel.average_upload_frequency = avg_freq
+    db_channel.latest_video_published_at = latest_upload
+    res = ChannelResponse.model_validate(db_channel)
+    res.short_video_count = s_cnt
+    res.live_stream_count = l_cnt
+    res.regular_video_count = r_cnt
+    res.short_ratio = s_rat
+    res.live_ratio = l_rat
+    res.weekly_video_count = w_cnt
+    return res
+
+@router.put("/{channel_id}/tags", response_model=ChannelResponse)
+def update_channel_tags(channel_id: int, payload: ChannelTagsUpdateRequest, db: Session = Depends(get_db)):
+    """
+    指定されたチャンネルのタグ一覧を更新します。
+    前後空白トリム、空文字除外、順序保持の重複排除を行い、JSON配列文字列として保存します。
+    """
+    db_channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定されたチャンネルが見つかりませんでした。"
+        )
+    
+    # トリム & 重複排除 (順序保持)
+    cleaned_tags = []
+    seen = set()
+    for t in payload.tags:
+        clean = str(t).strip()
+        if clean and clean not in seen:
+            seen.add(clean)
+            cleaned_tags.append(clean)
+            
+    db_channel.tags = json.dumps(cleaned_tags, ensure_ascii=False)
+    db_channel.updated_at = datetime.datetime.utcnow()
     db.commit()
     db.refresh(db_channel)
     

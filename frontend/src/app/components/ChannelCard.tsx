@@ -21,6 +21,7 @@ interface ChannelCardProps {
   onToggleOwnChannel?: (channelId: number) => void;
   isAllTrendExpanded?: boolean;
   allTrendMetric?: 'subscribers' | 'views' | 'videos' | 'weekday';
+  isAllTopVideosExpanded?: boolean;
   isHotFilterActive?: boolean;
 }
 
@@ -82,6 +83,7 @@ export default function ChannelCard({
   onToggleOwnChannel,
   isAllTrendExpanded,
   allTrendMetric,
+  isAllTopVideosExpanded,
   isHotFilterActive = false,
   onSelectTag,
   onUpdateTags,
@@ -194,6 +196,13 @@ export default function ChannelCard({
       setShowChart(isAllTrendExpanded);
     }
   }, [isAllTrendExpanded]);
+
+  // 親からの牽引動画TOP3一括開閉フラグ変化を検知して同期
+  useEffect(() => {
+    if (isAllTopVideosExpanded !== undefined) {
+      setShowTopVideos(isAllTopVideosExpanded);
+    }
+  }, [isAllTopVideosExpanded]);
 
   // showChart が true になった時、未ロードであれば自動的に履歴データをフェッチ (1回のみ)
   useEffect(() => {
@@ -730,6 +739,8 @@ export default function ChannelCard({
                         alt={vid.title}
                         className={styles.topVideoThumbnail}
                         referrerPolicy="no-referrer"
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <div className={styles.topVideoThumbnailPlaceholder}>

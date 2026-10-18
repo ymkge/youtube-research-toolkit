@@ -34,6 +34,7 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [isAllTrendExpanded, setIsAllTrendExpanded] = useState(false);
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('views');
+  const [isAllTopVideosExpanded, setIsAllTopVideosExpanded] = useState(false);
 
   // 全ユニークタグ一覧と各タグ件数の即時集計 (Single Source of Truth)
   const tagSummaries = React.useMemo(() => {
@@ -494,6 +495,16 @@ export default function Home() {
                       </button>
                     </div>
 
+                    {/* 牽引動画TOP3一括制御ボタン */}
+                    <button
+                      onClick={() => setIsAllTopVideosExpanded(!isAllTopVideosExpanded)}
+                      className={`${styles.toggleAllTopVideosBtn} ${isAllTopVideosExpanded ? styles.toggleActiveTopVideos : ''}`}
+                      title={isAllTopVideosExpanded ? "表示中のチャンネルの牽引動画TOP3を一括で閉じる" : "表示中のチャンネルの牽引動画TOP3を一括で展開"}
+                    >
+                      <Flame size={14} className={isAllTopVideosExpanded ? styles.activeFlameIcon : ''} />
+                      <span>{isAllTopVideosExpanded ? 'TOP3一括閉じる' : 'TOP3一括表示'}</span>
+                    </button>
+
                     {/* トレンドグラフ一括制御（トグルボタン ＆ 指標選択ドロップダウンの一体化グループ） */}
                     <div className={styles.trendControlGroup}>
                       <button
@@ -616,6 +627,7 @@ export default function Home() {
                       onShowAIAnalysis={handleShowAIAnalysis}
                       isAllTrendExpanded={isAllTrendExpanded}
                       allTrendMetric={trendMetric}
+                      isAllTopVideosExpanded={isAllTopVideosExpanded}
                       isHotFilterActive={signalFilter === 'HOT'}
                       onSelectTag={(tag) => setSelectedTag(tag)}
                       onUpdateTags={handleUpdateTags}

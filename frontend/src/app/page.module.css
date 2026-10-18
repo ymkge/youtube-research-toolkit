@@ -361,6 +361,42 @@
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
 }
 
+/* 牽引動画TOP3一括制御ボタン */
+.toggleAllTopVideosBtn {
+  background-color: #181818;
+  border: 1px solid #333344;
+  color: #ff8844;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.toggleAllTopVideosBtn:hover {
+  background-color: rgba(255, 107, 0, 0.15);
+  border-color: #ff6b00;
+  color: #ffffff;
+}
+
+.toggleActiveTopVideos {
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.25) 0%, rgba(239, 68, 68, 0.2) 100%);
+  border: 1px solid #ff6b00;
+  color: #ff8844;
+  box-shadow: 0 0 12px rgba(255, 107, 0, 0.3);
+}
+
+.activeFlameIcon {
+  color: #ff5500;
+  filter: drop-shadow(0 0 4px rgba(255, 85, 0, 0.6));
+}
+
 .trendControlGroup {
   display: inline-flex;
   align-items: center;

@@ -19,6 +19,7 @@ except Exception:
 
 from app.db.session import SessionLocal
 from app.models.channel import Channel
+from app.models.channel_stats_history import ChannelStatsHistory
 from app.services.youtube import youtube_service
 
 def sync_all_metadata_cli():
@@ -75,17 +76,40 @@ def sync_all_metadata_cli():
             if info.get("country"):
                 c.country = info["country"]
 
-            # Max Guard による統計更新
+            # 統計情報の更新（再生数・動画数はMax Guard、登録者数は実態反映のため最新値を許容）
             api_subs = info.get("subscriber_count", 0)
             api_views = info.get("view_count", 0)
             api_vids = info.get("video_count", 0)
 
-            if api_subs > (c.subscriber_count or 0):
+            if api_subs is not None and api_subs >= 0:
                 c.subscriber_count = api_subs
             if api_views > (c.view_count or 0):
                 c.view_count = api_views
             if api_vids > (c.video_count or 0):
                 c.video_count = api_vids
+
+            # 当日の履歴レコード (ChannelStatsHistory) も同時に同期
+            today_date = datetime.date.today()
+            today_history = db.query(ChannelStatsHistory).filter(
+                ChannelStatsHistory.channel_id == c.id,
+                ChannelStatsHistory.recorded_at == today_date
+            ).first()
+            if today_history:
+                if api_subs is not None and api_subs >= 0:
+                    today_history.subscriber_count = api_subs
+                if api_views > (today_history.view_count or 0):
+                    today_history.view_count = api_views
+                if api_vids > (today_history.video_count or 0):
+                    today_history.video_count = api_vids
+            else:
+                new_record = ChannelStatsHistory(
+                    channel_id=c.id,
+                    subscriber_count=c.subscriber_count or 0,
+                    view_count=c.view_count or 0,
+                    video_count=c.video_count or 0,
+                    recorded_at=today_date
+                )
+                db.add(new_record)
 
             c.updated_at = now_utc
             updated_count += 1

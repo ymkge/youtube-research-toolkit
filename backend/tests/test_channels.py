@@ -866,3 +866,72 @@ def test_update_channel_tags_and_get_all_tags(client, db):
     # 5. 存在しないチャンネルIDの更新で 404 が返ることを確認
     bad_res = client.put("/api/channels/999999/tags", json={"tags": ["テスト"]})
     assert bad_res.status_code == 404
+
+
+@patch("app.api.endpoints.channels.youtube_service")
+def test_sync_all_metadata_allows_subscriber_decrease(mock_youtube, client, db):
+    """
+    Issue #126: 一括メタデータ同期 API において、登録者数の減少が正常に反映され、
+    再生数・動画数の Max Guard が維持されること、および GET /api/channels/ で
+    daily_sub_growth が負数（-1）になることを検証。
+    """
+    mock_youtube.is_configured.return_value = True
+
+    # 1. チャンネル作成（前日値: 58名）
+    c = Channel(
+        youtube_channel_id="UC_DEC_SYNC_TEST",
+        title="Decrease Test Channel",
+        description="Old description",
+        subscriber_count=58,
+        view_count=10000,
+        video_count=50,
+        sort_order=1
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+
+    # 前日の履歴レコード（58名）
+    yesterday = date.today() - timedelta(days=1)
+    h_prev = ChannelStatsHistory(
+        channel_id=c.id,
+        subscriber_count=58,
+        view_count=10000,
+        video_count=50,
+        recorded_at=yesterday
+    )
+    db.add(h_prev)
+    db.commit()
+
+    # 2. YouTube API モック: 登録者数が 58 -> 57 に減少、再生数は 9000 にラグ減少
+    mock_youtube.get_channels_info_batch.return_value = {
+        "UC_DEC_SYNC_TEST": {
+            "title": "Decrease Test Channel",
+            "description": "Updated description",
+            "custom_url": "@dectest",
+            "thumbnail_url": "http://example.com/thumb.jpg",
+            "country": "JP",
+            "subscriber_count": 57,
+            "view_count": 9000,
+            "video_count": 49
+        }
+    }
+
+    # 3. メタデータ同期実行
+    response = client.post("/api/channels/sync-all-metadata")
+    assert response.status_code == 200
+
+    # 4. DB内の値の検証
+    db.refresh(c)
+    assert c.subscriber_count == 57  # 減少が反映されること
+    assert c.view_count == 10000     # 再生数は Max Guard で維持されること
+    assert c.video_count == 50       # 動画数は Max Guard で維持されること
+
+    # 5. GET /api/channels/ の daily_sub_growth が -1 になることを検証
+    list_res = client.get("/api/channels/")
+    assert list_res.status_code == 200
+    channels_list = list_res.json()
+    target_ch = next(item for item in channels_list if item["id"] == c.id)
+    assert target_ch["subscriber_count"] == 57
+    assert target_ch["daily_sub_growth"] == -1
+

@@ -275,7 +275,7 @@ def run_json_mode(exit_on_anomaly: bool = False):
                 print(f"[NOTICE] Channel '{title}' ({youtube_channel_id}): Video count decreased "
                       f"({api_vids} < prev: {prev_vids}, videos deleted/privated). Max Guard activated.")
 
-            guarded_subs = max(api_subs, prev_subs)
+            guarded_subs = max(api_subs, 0)
             guarded_views = max(api_views, prev_views)
             guarded_vids = max(api_vids, prev_vids)
 

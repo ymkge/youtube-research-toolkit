@@ -1144,17 +1144,40 @@ def sync_all_channel_metadata(db: Session = Depends(get_db)):
         if info.get("country"):
             channel.country = info["country"]
 
-        # 2. 統計情報の Max Guard 更新（数値減少デグレ防止）
+        # 2. 統計情報の更新（再生数・動画数はMax Guard、登録者数は実態反映のため最新値を許容）
         api_subs = info.get("subscriber_count", 0)
         api_views = info.get("view_count", 0)
         api_vids = info.get("video_count", 0)
 
-        if api_subs > (channel.subscriber_count or 0):
+        if api_subs is not None and api_subs >= 0:
             channel.subscriber_count = api_subs
         if api_views > (channel.view_count or 0):
             channel.view_count = api_views
         if api_vids > (channel.video_count or 0):
             channel.video_count = api_vids
+
+        # 3. 当日の履歴レコード (ChannelStatsHistory) も同時に同期
+        today_date = datetime.date.today()
+        today_history = db.query(ChannelStatsHistory).filter(
+            ChannelStatsHistory.channel_id == channel.id,
+            ChannelStatsHistory.recorded_at == today_date
+        ).first()
+        if today_history:
+            if api_subs is not None and api_subs >= 0:
+                today_history.subscriber_count = api_subs
+            if api_views > (today_history.view_count or 0):
+                today_history.view_count = api_views
+            if api_vids > (today_history.video_count or 0):
+                today_history.video_count = api_vids
+        else:
+            new_record = ChannelStatsHistory(
+                channel_id=channel.id,
+                subscriber_count=channel.subscriber_count or 0,
+                view_count=channel.view_count or 0,
+                video_count=channel.video_count or 0,
+                recorded_at=today_date
+            )
+            db.add(new_record)
 
         channel.updated_at = now_utc
         synced_titles.append(channel.title)

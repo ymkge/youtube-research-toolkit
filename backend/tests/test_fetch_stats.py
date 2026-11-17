@@ -132,3 +132,39 @@ def test_run_json_mode_anomaly_separation(tmp_path, monkeypatch):
         ch2_res = json.load(f)
         assert ch2_res[-1]["view_count"] == 21000  # Increased
         assert ch2_res[-1]["video_count"] == 20   # Guarded from 19 to 20
+
+def test_run_json_mode_allows_subscriber_decrease(tmp_path, monkeypatch):
+    """
+    Issue #126: 登録者数減少時に前日値に巻き戻されず、最新の減少値が記録されることを検証。
+    同時に、再生数・動画数の Max Guard は正常に維持されることを確認。
+    """
+    history_dir = tmp_path / "history"
+    history_dir.mkdir()
+    monkeypatch.setattr("app.scripts.fetch_stats.HISTORY_DIR", str(history_dir))
+
+    ch_file = history_dir / "UC_DEC_TEST.json"
+    with open(ch_file, "w", encoding="utf-8") as f:
+        json.dump([{"date": "2026-11-16", "view_count": 10000, "video_count": 10, "subscriber_count": 100}], f)
+
+    # Mock batch fetch:
+    # 登録者数が 100 -> 95 に減少
+    # 再生数は 10000 -> 8000 にラグで減少
+    def mock_get_batch(self, cids, handles=None):
+        return {
+            "UC_DEC_TEST": {"subscriber_count": 95, "view_count": 8000, "video_count": 10}
+        }
+    monkeypatch.setattr("app.services.youtube.YouTubeService.get_channels_info_batch", mock_get_batch)
+    monkeypatch.setattr("app.scripts.fetch_stats.SessionLocal", lambda: None)
+
+    run_json_mode(exit_on_anomaly=False)
+
+    with open(ch_file, "r") as f:
+        res = json.load(f)
+        today_entry = res[-1]
+        # 登録者数は減少した95が反映される
+        assert today_entry["subscriber_count"] == 95
+        assert today_entry["subscribers"] == 95
+        # 再生数は Max Guard により 10000 に保護される
+        assert today_entry["view_count"] == 10000
+        assert today_entry["video_count"] == 10
+
